@@ -109,7 +109,7 @@ def _tiny_pdf(texts):
     out = "%PDF-1.4\n"
     for i, o in enumerate(objs, 1):
         out += f"{i} 0 obj\n{o}\nendobj\n"
-    return (out + "trailer\n<< /Root 1 0 R /Size %d >>\n%%%%EOF\n" % (len(objs) + 1)).encode()
+    return (out + f"trailer\n<< /Root 1 0 R /Size {len(objs) + 1} >>\n%%EOF\n").encode()
 
 
 def test_extract_pages_reads_real_pdf(tmp_path):
