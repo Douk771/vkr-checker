@@ -225,8 +225,14 @@ class Layout:
 
     page_count: int
     paragraph_pages: dict[int, int] = field(default_factory=dict)
-    table_pages: dict[int, int] = field(default_factory=dict)
+    table_pages: dict[int, int] = field(default_factory=dict)  # первая страница таблицы
     status: Literal["ok", "partial"] = "ok"
+    # ARCHITECTURE.md §8.1: поля, добавленные к исходной модели (все с умолчаниями)
+    table_last_pages: dict[int, int] = field(default_factory=dict)  # последняя страница
+    heading_pages: dict[str, int] = field(default_factory=dict)  # section_id -> страница
+    coverage: float = 1.0
+    engine: str | None = None
+    font_substitutions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
