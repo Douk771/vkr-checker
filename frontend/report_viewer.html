@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Отчёт о проверке ВКР</title>
+  <link rel="stylesheet" href="/viewer.css">
+</head>
+<body>
+  <div id="rv-root" role="main"></div>
+  <!-- F-14 подставляет JSON ответа, заменяя каждый "<" на юникод-эскейп U+003C -->
+  <script type="application/json" id="report-data"></script>
+  <script type="module">
+    import { renderFromDocument } from "/viewer.js";
+    renderFromDocument();
+  </script>
+</body>
+</html>

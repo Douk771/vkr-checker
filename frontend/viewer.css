@@ -1,0 +1,40 @@
+:root {
+  --bg: #f6f5f2; --surface: #fff; --ink: #1d2327; --muted: #5b646b; --line: #d9d6cf;
+  --v-bg: #fde8e6; --v-ink: #7a1610;
+  --s-bg: #fff4d6; --s-ink: #5c4300;
+  --n-bg: #e8edf2; --n-ink: #2b3b4a;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--font); }
+#rv-root { max-width: 920px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 1.4rem; margin: 0 0 8px; }
+h2 { font-size: 1.2rem; margin: 32px 0 12px; }
+h4 { font-size: 1rem; margin: 16px 0 8px; }
+.muted { color: var(--muted); }
+.note { background: var(--s-bg); color: var(--s-ink); padding: 8px 12px; border-radius: 6px; }
+.summary { list-style: none; display: flex; flex-wrap: wrap; gap: 16px; padding: 0; margin: 16px 0 8px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: .85rem; font-weight: 600;
+  border: 1px solid currentColor; }
+.badge--violation { background: var(--v-bg); color: var(--v-ink); }
+.badge--suspicion, .badge--not_run { background: var(--s-bg); color: var(--s-ink); }
+.badge--not_run { border-style: dashed; }
+.badge--not_checked { background: var(--n-bg); color: var(--n-ink); }
+.filters { border: 1px solid var(--line); border-radius: 6px; margin: 16px 0; display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.filters__item { cursor: pointer; }
+.findings, .locs { list-style: none; padding: 0; margin: 0; }
+.finding { background: var(--surface); border: 1px solid var(--line); border-left-width: 4px;
+  border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; }
+.finding--violation { border-left-color: var(--v-ink); }
+.finding--suspicion, .finding--not_run { border-left-color: var(--s-ink); }
+.finding__head { display: flex; gap: 12px; align-items: center; }
+.finding__rule { color: var(--muted); font-size: .85rem; }
+.finding__msg { margin: 6px 0; }
+.finding__hint { margin: 6px 0 0; color: var(--muted); }
+.loc { margin: 6px 0; font-size: .9rem; }
+.loc__path { color: var(--muted); }
+.loc__quote { margin: 4px 0 0; padding-left: 12px; border-left: 2px solid var(--line); white-space: pre-wrap; }
+mark { background: #ffe066; color: inherit; text-decoration: underline; }
+.tree { padding-left: 20px; }
+.empty { color: var(--muted); }
+:focus-visible { outline: 3px solid #1a56db; outline-offset: 2px; }
+@media print { body { background: #fff; } .filters { display: none; } .finding { break-inside: avoid; } }

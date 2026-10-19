@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Проверка ВКР</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="topbar__title">Проверка ВКР</h1>
+    <p class="topbar__meta" id="engine-info" hidden></p>
+  </header>
+
+  <div class="banner banner--warn" id="layout-banner" role="status" hidden></div>
+  <div class="banner banner--error" id="startup-error" role="alert" hidden>
+    <span id="startup-error-text"></span>
+    <button type="button" class="btn btn--ghost" id="startup-retry">Повторить</button>
+  </div>
+
+  <main class="page">
+    <p class="muted" id="loading" role="status">Подключение к сервису…</p>
+
+    <section class="panel" id="login-panel" aria-labelledby="login-title" hidden>
+      <h2 id="login-title">Вход</h2>
+      <form id="login-form" class="form" novalidate>
+        <label class="field" for="password">Пароль</label>
+        <input class="input" id="password" name="password" type="password"
+               autocomplete="current-password" maxlength="256" required>
+        <p class="form__error" id="login-error" role="alert" hidden></p>
+        <button type="submit" class="btn btn--primary" id="login-submit">Войти</button>
+      </form>
+    </section>
+
+    <section id="workspace" aria-label="Рабочая область" hidden>
+      <!-- F-03: режимы загрузки подключаются сюда -->
+      <p class="muted" id="limits-info"></p>
+    </section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

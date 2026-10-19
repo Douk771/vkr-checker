@@ -1,0 +1,43 @@
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --ink: #1d2327;
+  --ink-muted: #5b646b;
+  --line: #d9d6cf;
+  --accent: #0f5c4d;
+  --accent-ink: #ffffff;
+  --warn-bg: #fff4d6;
+  --warn-ink: #5c4300;
+  --error-bg: #fde8e6;
+  --error-ink: #7a1610;
+  --focus: #1a56db;
+  --radius: 6px;
+  --s1: 4px; --s2: 8px; --s3: 16px; --s4: 24px; --s5: 40px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--font); }
+h1, h2 { line-height: 1.2; margin: 0; }
+h2 { font-size: 1.25rem; margin-bottom: var(--s3); }
+.topbar { display: flex; align-items: baseline; gap: var(--s3); padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--line); background: var(--surface); }
+.topbar__title { font-size: 1.25rem; }
+.topbar__meta { margin: 0; color: var(--ink-muted); font-size: .875rem; }
+.page { max-width: 960px; margin: 0 auto; padding: var(--s4); }
+.muted { color: var(--ink-muted); }
+.banner { padding: var(--s2) var(--s4); display: flex; gap: var(--s3); align-items: center; }
+.banner--warn { background: var(--warn-bg); color: var(--warn-ink); border-bottom: 1px solid #e6cf8a; }
+.banner--error { background: var(--error-bg); color: var(--error-ink); border-bottom: 1px solid #e3aaa5; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: var(--s4); max-width: 420px; }
+.form { display: grid; gap: var(--s2); }
+.field { font-weight: 600; }
+.input { font: inherit; padding: var(--s2) var(--s3); border: 1px solid #8a9298; border-radius: var(--radius); }
+.form__error { margin: 0; color: var(--error-ink); font-weight: 600; }
+.btn { font: inherit; padding: var(--s2) var(--s3); border-radius: var(--radius); cursor: pointer;
+  border: 1px solid var(--accent); }
+.btn--primary { background: var(--accent); color: var(--accent-ink); }
+.btn--ghost { background: transparent; color: inherit; border-color: currentColor; }
+.btn[disabled] { opacity: .6; cursor: progress; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }

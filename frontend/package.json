@@ -1,0 +1,10 @@
+{
+  "name": "vkr-checker-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "mock": "npx --yes @stoplight/prism-cli mock ../api/openapi.yaml -p 4010",
+    "dev": "node dev_server.mjs"
+  }
+}
