@@ -5,6 +5,7 @@ import { MODES, validateSelection, firstFile, progressText, withAuthRetry, isAbo
 import { buildStandaloneHtml, reportFileName } from "./download.js";
 import { buildExportPayload } from "./artifacts.js";
 import { renderReport } from "/viewer.js";
+import { renderCompare } from "/compare_view.js";
 
 const $ = (id) => document.getElementById(id);
 const LABELS = { check: "Проверить", compare: "Сравнить" };
@@ -86,7 +87,7 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
     setBusy(true);
     try {
       const data = await withAuthRetry(action, () => requestLogin(signal));
-      showReport(reportFromResponse(mode, data));
+      showReport(reportFromResponse(mode, data), mode === MODES.compare ? data : null);
     } catch (e) {
       if (isAbort(e)) {
         $("run-error").textContent = "Отменено";
@@ -100,11 +101,14 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
     }
   }
 
-  function showReport(report) {
+  function showReport(report, compare) {
     lastReport = report;
     $("result").hidden = false;
     $("download-status").textContent = "";
-    renderReport(report, $("rv-root"), {
+    const cmp = $("cmp-root");
+    cmp.hidden = !compare;
+    if (!compare) cmp.replaceChildren();
+    const opts = {
       onExportMatrix: async () => {
         try {
           const blob = await state.api.exportMatrix(buildExportPayload(report));
@@ -115,7 +119,9 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
           throw err;
         }
       },
-    });
+    };
+    if (compare) renderCompare(compare, cmp, $("rv-root"), opts);
+    else renderReport(report, $("rv-root"), opts);
     $("result").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 

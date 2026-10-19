@@ -47,3 +47,26 @@ mark { background: #ffe066; color: inherit; text-decoration: underline; }
 .cell--na { background: var(--n-bg); color: var(--n-ink); }
 .cell__status { display: block; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
 .artifact summary { cursor: pointer; color: var(--muted); }
+/* Сравнение версий: смысл не зависит от цвета (маркеры +/− и подчёркивание/зачёркивание) */
+.badge--diff { background: var(--n-bg); color: var(--n-ink); }
+.dsec { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; }
+.dsec summary { cursor: pointer; }
+.paras, .rows { list-style: none; padding-left: 0; margin: 8px 0; }
+.rows { padding-left: 16px; list-style: disc; }
+.para { margin: 8px 0; padding-left: 8px; border-left: 2px solid var(--line); }
+.diff__text { margin: 4px 0; white-space: pre-wrap; }
+.seg--ins { background: #dff3e0; color: #12351a; text-decoration: underline; }
+.seg--del { background: #fde8e6; color: #7a1610; text-decoration: line-through; }
+.seg--ins::before { content: "[+"; font-weight: 700; }
+.seg--ins::after { content: "+]"; font-weight: 700; }
+.seg--del::before { content: "[\2212"; font-weight: 700; }
+.seg--del::after { content: "\2212]"; font-weight: 700; }
+.btn:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px solid #1a56db; outline-offset: 2px; }
+@media print {
+  .result__bar, .filters, button, .upload, #run-error { display: none !important; }
+  .dsec, .para, .finding, tr { break-inside: avoid; }
+  a[href]::after { content: " (" attr(href) ")"; }
+  body, .dsec, .finding { background: #fff; }
+  #rv-root, #cmp-root { max-width: none; padding: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
