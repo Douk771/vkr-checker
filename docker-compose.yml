@@ -6,7 +6,7 @@ services:
     build: .
     image: vkr-checker:local
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${VKR_HOST_PORT:-8000}:8000"
     environment:
       VKR_MODE: ${VKR_MODE:-local}
       VKR_PASSWORD: ${VKR_PASSWORD:-}
