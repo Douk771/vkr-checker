@@ -99,11 +99,19 @@ class Hyp01HypothesisConsistency:
             )  # fmt: skip
         ]
 
+    @staticmethod
+    def _chapter2_mentions(ctx: CheckContext):
+        """Тело главы 2 и выводы к главе 2 (SPEC: «в главе 2 - проверка гипотезы, выводы»)."""
+        return [
+            m
+            for m in ctx.facts.hypothesis_mentions
+            if m.section_kind in ("CHAPTER", "CHAPTER_CONCLUSIONS")
+            and (m.chapter is None or m.chapter >= 2)
+        ]
+
     def _missing_in_chapter2(self, ctx: CheckContext):
         chapters = [s for s in ctx.doc.sections if s.kind == "CHAPTER"]
-        if len(chapters) < 2 or any(
-            m.section_kind == "CHAPTER" for m in ctx.facts.hypothesis_mentions
-        ):
+        if len(chapters) < 2 or self._chapter2_mentions(ctx):
             return []
         return [
             new_finding(
@@ -117,27 +125,29 @@ class Hyp01HypothesisConsistency:
         ]
 
     def _status_mismatch(self, ctx: CheckContext):
-        """Статус гипотезы в главе 2 и в заключении различается (BUG-Q6)."""
-        mentions = ctx.facts.hypothesis_mentions
-        chapter = [m for m in mentions if m.section_kind == "CHAPTER" and m.status]
-        conclusion = [m for m in mentions if m.section_kind == "CONCLUSION" and m.status]
+        """Статус гипотезы в главе 2 (включая выводы) и в заключении различается (BUG-Q6)."""
+        chapter = [m for m in self._chapter2_mentions(ctx) if m.status]
+        conclusion = [
+            m for m in ctx.facts.hypothesis_mentions if m.section_kind == "CONCLUSION" and m.status
+        ]
         if not chapter or not conclusion:
             return []
-        in_chapter = {m.status for m in chapter}
+        in_chapter = list(dict.fromkeys(m.status for m in chapter))
         in_conclusion = {m.status for m in conclusion}
-        if in_chapter & in_conclusion:
+        if set(in_chapter) & in_conclusion:
             return []
         m = conclusion[0]
-        ch_status = STATUS_TITLES[chapter[0].status]
+        ch_titles = ", ".join(f"«{STATUS_TITLES[x]}»" for x in in_chapter)
         return [
             new_finding(
                 self,
                 f"Статус гипотезы в заключении («{STATUS_TITLES[m.status]}») расходится "
-                f"с главой 2 («{ch_status}»).",
+                f"с главой 2 ({ch_titles}).",
                 fingerprint="HYP-01|status_mismatch",
                 method="morph",
-                locations=[mention_location(ctx, m.loc)],
-                values={"status": m.status, "status_chapter2": chapter[0].status},
+                locations=[mention_location(ctx, chapter[0].loc), mention_location(ctx, m.loc)],
+                values={"status": m.status, "status_chapter2": in_chapter[0],
+                        "statuses_chapter2": in_chapter},
                 hint="Статус гипотезы должен совпадать в главе 2 и в заключении.",
             )  # fmt: skip
         ]

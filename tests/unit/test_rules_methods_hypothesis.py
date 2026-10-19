@@ -137,3 +137,55 @@ def test_met02_authors_differ_between_chapters():
     assert [f.fingerprint for f in res.findings] == ["MET-02|authors|шкала учебной мотивации"]
     ch1_same = ["Шкала учебной мотивации создана Ивановым А.А."]
     assert not run(Met02InstrumentsInTheory(), frame(["Цель."], ch1=ch1_same, sub21=sub)).findings
+
+
+def _hyp_items(chapter_body, ch2_conclusions, conclusion):
+    return [
+        H("ВВЕДЕНИЕ"), HYP,
+        H("ГЛАВА 1. Теоретические основы"), "Теория.",
+        H("ГЛАВА 2. Эмпирическое исследование"), *chapter_body,
+        H("Выводы по главе 2", 2), *ch2_conclusions,
+        H("ЗАКЛЮЧЕНИЕ"), *conclusion,
+    ]  # fmt: skip
+
+
+def test_hyp01_status_only_in_chapter2_conclusions_is_accepted():
+    items = _hyp_items(["Результаты."], ["Гипотеза подтвердилась."], ["Гипотеза подтвердилась."])
+    assert not run(Hyp01HypothesisConsistency(), items).findings
+
+
+def test_hyp01_status_in_chapter2_conclusions_differs_from_conclusion():
+    items = _hyp_items(["Результаты."], ["Гипотеза не подтвердилась."], ["Гипотеза подтвердилась."])
+    res = run(Hyp01HypothesisConsistency(), items)
+    assert [f.fingerprint for f in res.findings] == ["HYP-01|status_mismatch"]
+    assert len(res.findings[0].locations) == 2
+
+
+def test_hyp01_noun_confirmation_is_not_a_status():
+    from vkr_checker.checks.facts.hypothesis import status_of
+
+    assert status_of("Для подтверждения гипотезы применялся критерий Спирмена.") is None
+    assert status_of("Гипотеза подтвердилась.") == "confirmed"
+    assert status_of("Гипотеза не подтвердилась.") == "not_confirmed"
+    assert status_of("Гипотеза подтверждена частично.") == "confirmed"
+
+
+def test_hyp01_several_statuses_in_chapter2_all_reported():
+    body = ["Гипотеза 1 подтвердилась.", "Гипотеза 2 не подтвердилась."]
+    items = _hyp_items(body, ["Итоги."], ["Гипотеза частично подтвердилась."])
+    res = run(Hyp01HypothesisConsistency(), items)
+    f = res.findings[0]
+    assert f.values["statuses_chapter2"] == ["confirmed", "not_confirmed"]
+    assert "«подтверждена»" in f.message and "«не подтверждена»" in f.message
+
+
+def test_met02_name_in_other_case_or_with_typo_counts_as_found():
+    sub = ["Использовалась методика «Шкала учебной мотивации» (ШУМ) Иванова А.А."]
+    for ch1 in (["Применяют шкалу учебной мотивации."], ["Шкалы учебной мотевации известны."]):
+        assert not run(Met02InstrumentsInTheory(), frame(["Цель."], ch1=ch1, sub21=sub)).findings
+
+
+def test_met02_short_function_words_in_name_are_ignored():
+    sub = ["Использовалась методика «Опросник для диагностики стресса» Иванова А.А."]
+    ch1 = ["Опросник диагностики стресса создан Ивановым А.А."]
+    assert not run(Met02InstrumentsInTheory(), frame(["Цель."], ch1=ch1, sub21=sub)).findings

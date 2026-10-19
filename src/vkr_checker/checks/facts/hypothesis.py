@@ -16,11 +16,16 @@ _HYP_WORD = re.compile(r"гипотез\w*", re.IGNORECASE)
 _HYP_HEAD = re.compile(
     r"^\s*(?:рабоч\w+\s+|общ\w+\s+|частн\w+\s+)?гипотез\w*\s*\d*\s*[:.\-–—]?\s*", re.IGNORECASE
 )
+# Только глагольные и краткие причастные формы статуса; «для подтверждения гипотезы» не в счёт.
+_CONFIRMED = re.compile(
+    r"подтверд(?:ил\w*|ит\w*)|подтвержд(?:ен[аоы]?|ён|ается|аются|ала|ало|али|ался|ались)(?!\w)",
+    re.IGNORECASE,
+)
 STATUS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("not_confirmed", re.compile(r"не\s+(?:был\w*\s+)?подтвер\w+", re.IGNORECASE)),
     ("partially_confirmed", re.compile(r"частично\s+(?:был\w*\s+)?подтвер\w+", re.IGNORECASE)),
     ("mostly_confirmed", re.compile(r"в\s+основном\s+(?:был\w*\s+)?подтвер\w+", re.IGNORECASE)),
-    ("confirmed", re.compile(r"подтвер\w+", re.IGNORECASE)),
+    ("confirmed", _CONFIRMED),
 )
 STATUS_TITLES = {
     "not_confirmed": "не подтверждена",
