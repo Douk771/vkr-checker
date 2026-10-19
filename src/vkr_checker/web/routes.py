@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shutil
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -74,7 +75,7 @@ async def get_health(request: Request) -> Health:
         service_version=__version__,
         mode=s.mode,
         auth_required=s.auth_required,
-        authenticated=request.app.state.authenticator.is_authenticated(request),
+        authenticated=request.app.state.authenticator.has_valid_session(request),
         layout_available=layout.available,
         layout_engine=layout.engine if layout.available else None,
         limits={
@@ -85,22 +86,62 @@ async def get_health(request: Request) -> Health:
     )
 
 
-async def _run_blocking(fn: Callable[..., T], *args: Any, timeout_s: int, field: str = "file") -> T:
-    """Синхронный конвейер в рабочем потоке с жёстким таймаутом; сбои переводятся в ApiError."""
+def _translate(exc: Exception, field: str) -> ApiError:
+    if isinstance(exc, DocxError):
+        return ApiError(exc.code, exc.message, field=field)
+    if isinstance(exc, InputFileError):
+        return ApiError(exc.code, exc.message, field=exc.field)
+    if isinstance(exc, ApiError):
+        return exc
+    # значения и тексты работ в лог не попадают: только тип исключения
+    log.error("сбой конвейера type=%s", type(exc).__name__, exc_info=False)
+    return ApiError("internal_error")
+
+
+async def _run_job(
+    request: Request,
+    fields: tuple[str, ...],
+    slots_needed: int,
+    timeout_s: int,
+    fn: Callable[..., T],
+    max_bytes: int,
+    *,
+    field: str = "file",
+) -> T:
+    """Приём файлов, слоты и конвейер в рабочем потоке.
+
+    Таймаут отвечает клиенту 503, но слот и каталог загрузки освобождаются только когда поток
+    действительно закончил: иначе лимит одновременных задач не действует, а каталог исчезает
+    под работающим потоком.
+    """
+    slots = request.app.state.slots
+    tmp = Path(tempfile.mkdtemp(prefix="vkr-"))
+    slot_taken = False
+    started = False
     try:
-        return await asyncio.wait_for(to_thread.run_sync(fn, *args), timeout=timeout_s)
-    except asyncio.TimeoutError:
-        raise ApiError("processing_timeout", retry_after=None) from None
-    except DocxError as exc:
-        raise ApiError(exc.code, exc.message, field=field) from exc
-    except InputFileError as exc:
-        raise ApiError(exc.code, exc.message, field=exc.field) from exc
-    except ApiError:
-        raise
-    except Exception as exc:
-        # значения и тексты работ в лог не попадают: только тип исключения
-        log.error("сбой конвейера type=%s", type(exc).__name__, exc_info=False)
-        raise ApiError("internal_error") from exc
+        files = await receive_files(request, fields, tmp, max_bytes)
+        await slots.take(slots_needed)
+        slot_taken = True
+        loop = asyncio.get_running_loop()
+        future = loop.run_in_executor(None, lambda: fn(*[files[f] for f in fields]))
+        started = True
+
+        def _finished(_: Any) -> None:
+            shutil.rmtree(tmp, ignore_errors=True)
+            loop.create_task(slots.give(slots_needed))
+
+        future.add_done_callback(_finished)
+        try:
+            return await asyncio.wait_for(asyncio.shield(future), timeout=timeout_s)
+        except asyncio.TimeoutError:
+            raise ApiError("processing_timeout", retry_after=None) from None
+        except Exception as exc:
+            raise _translate(exc, field) from exc
+    finally:
+        if not started:
+            shutil.rmtree(tmp, ignore_errors=True)
+            if slot_taken:
+                await slots.give(slots_needed)
 
 
 @router.post(
@@ -114,12 +155,9 @@ async def _run_blocking(fn: Callable[..., T], *args: Any, timeout_s: int, field:
 )
 async def check_document(request: Request) -> Any:
     s = request.app.state.settings
-    with tempfile.TemporaryDirectory(prefix="vkr-") as tmp:
-        files = await receive_files(request, ("file",), Path(tmp), s.max_upload_bytes)
-        async with request.app.state.slots.acquire(1):
-            return await _run_blocking(
-                request.app.state.pipeline.check, files["file"], timeout_s=s.check_timeout_s
-            )
+    return await _run_job(
+        request, ("file",), 1, s.check_timeout_s, request.app.state.pipeline.check, s.max_upload_bytes
+    )
 
 
 @router.post(
@@ -133,15 +171,14 @@ async def check_document(request: Request) -> Any:
 )
 async def compare_versions(request: Request) -> Any:
     s = request.app.state.settings
-    with tempfile.TemporaryDirectory(prefix="vkr-") as tmp:
-        files = await receive_files(request, ("old", "new"), Path(tmp), s.max_upload_bytes)
-        async with request.app.state.slots.acquire(2):
-            return await _run_blocking(
-                request.app.state.pipeline.compare,
-                files["old"],
-                files["new"],
-                timeout_s=s.compare_timeout_s,
-            )
+    return await _run_job(
+        request,
+        ("old", "new"),
+        2,
+        s.compare_timeout_s,
+        request.app.state.pipeline.compare,
+        s.max_upload_bytes,
+    )
 
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

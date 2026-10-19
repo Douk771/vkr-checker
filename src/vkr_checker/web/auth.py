@@ -23,6 +23,7 @@ from .errors import ApiError
 
 COOKIE_NAME = "vkr_session"
 RATE_WINDOW_S = 60
+MAX_TRACKED_IPS = 10_000
 
 
 class LoginRateLimiter:
@@ -32,6 +33,7 @@ class LoginRateLimiter:
         self._limit = limit_per_min
         self._clock = clock
         self._fails: dict[str, deque[float]] = defaultdict(deque)
+        self._last_sweep = clock()
 
     def _prune(self, ip: str) -> deque[float]:
         q = self._fails[ip]
@@ -49,7 +51,20 @@ class LoginRateLimiter:
             return None
         return max(1, int(RATE_WINDOW_S - (self._clock() - q[0])) + 1)
 
+    def _sweep(self) -> None:
+        """Раз в окно удаляет записи IP, у которых все попытки устарели (память не растёт)."""
+        now = self._clock()
+        if now - self._last_sweep < RATE_WINDOW_S and len(self._fails) <= MAX_TRACKED_IPS:
+            return
+        self._last_sweep = now
+        for ip in list(self._fails):
+            self._prune(ip)
+        if len(self._fails) > MAX_TRACKED_IPS:  # защитный предел: оставляем самые свежие
+            keep = sorted(self._fails, key=lambda k: self._fails[k][-1])[-MAX_TRACKED_IPS:]
+            self._fails = defaultdict(deque, {k: self._fails[k] for k in keep})
+
     def register_failure(self, ip: str) -> None:
+        self._sweep()
         self._prune(ip)
         self._fails[ip].append(self._clock())
 
@@ -90,21 +105,43 @@ class Authenticator:
         return int(exp) > self._clock()
 
     # --- запрос ----------------------------------------------------------------------------
+    def has_valid_session(self, request: Request) -> bool:
+        """Local: всегда True. Server: только валидная cookie (без проверки пароля)."""
+        if not self.settings.auth_required:
+            return True
+        return self.verify_token(request.cookies.get(COOKIE_NAME))
+
     def is_authenticated(self, request: Request) -> bool:
-        """Local: авторизации нет, запрос авторизован. Server: валидная cookie или Bearer."""
+        """Local: авторизации нет, запрос авторизован. Server: валидная cookie или Bearer.
+
+        Неверный Bearer считается неудачной попыткой входа (лимит на IP, 429 при превышении).
+        """
         if not self.settings.auth_required:
             return True
         if self.verify_token(request.cookies.get(COOKIE_NAME)):
             return True
         header = request.headers.get("authorization", "")
         scheme, _, value = header.partition(" ")
-        return scheme.lower() == "bearer" and self.check_password(value.strip())
+        if scheme.lower() != "bearer":
+            return False
+        ip = self.client_ip(request)
+        wait = self.limiter.retry_after(ip)
+        if wait is not None:
+            raise ApiError("too_many_attempts", retry_after=wait)
+        if self.check_password(value.strip()):
+            self.limiter.reset(ip)
+            return True
+        self.limiter.register_failure(ip)
+        return False
 
     def client_ip(self, request: Request) -> str:
         if self.settings.trust_proxy:
             forwarded = request.headers.get("x-forwarded-for", "")
             if forwarded:
-                return forwarded.split(",")[0].strip()
+                # крайний справа адрес дописан доверенным прокси; левые задаёт клиент
+                last = forwarded.split(",")[-1].strip()
+                if last:
+                    return last
         return request.client.host if request.client else "unknown"
 
 

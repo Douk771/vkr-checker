@@ -72,6 +72,41 @@ def test_rate_limiter_blocks_and_expires():
 
 def test_client_ip_proxy():
     a = make_auth(lambda: 0.0, trust_proxy=True)
-    assert a.client_ip(req(xff="9.9.9.9, 2.2.2.2")) == "9.9.9.9"
+    assert a.client_ip(req(xff="9.9.9.9, 2.2.2.2")) == "2.2.2.2"
     b = make_auth(lambda: 0.0)
     assert b.client_ip(req(xff="9.9.9.9")) == "1.1.1.1"
+
+
+def test_wrong_bearer_counts_as_failed_attempt_and_blocks():
+    import pytest
+
+    from vkr_checker.web.errors import ApiError
+
+    a = make_auth(lambda: 0.0, login_rate_per_min=3)
+    for _ in range(3):
+        assert not a.is_authenticated(req(bearer="bad"))
+    with pytest.raises(ApiError):
+        a.is_authenticated(req(bearer="secret-pw"))
+
+
+def test_valid_bearer_resets_counter():
+    a = make_auth(lambda: 0.0, login_rate_per_min=3)
+    assert not a.is_authenticated(req(bearer="bad"))
+    assert a.is_authenticated(req(bearer="secret-pw"))
+    assert a.limiter.retry_after("1.1.1.1") is None
+
+
+def test_session_check_ignores_bearer():
+    a = make_auth(lambda: 0.0)
+    assert not a.has_valid_session(req(bearer="secret-pw"))
+    assert a.has_valid_session(req(cookie=a.issue_token()))
+
+
+def test_limiter_sweeps_stale_ips():
+    now = [0.0]
+    lim = LoginRateLimiter(5, clock=lambda: now[0])
+    for i in range(50):
+        lim.register_failure(f"10.0.0.{i}")
+    now[0] += 120
+    lim.register_failure("9.9.9.9")
+    assert list(lim._fails) == ["9.9.9.9"]
