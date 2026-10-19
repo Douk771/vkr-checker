@@ -1,0 +1,365 @@
+{
+  "schema_version": "1.0",
+  "service_version": "0.1.0",
+  "checked_at": "2026-01-01T12:00:00Z",
+  "file": {
+    "name": "vkr_findings.docx",
+    "size_bytes": 512345,
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "layout": {
+    "status": "ok",
+    "engine": "LibreOffice 24.2",
+    "page_count": 72,
+    "coverage": 1.0,
+    "reason": null,
+    "font_substitutions": [],
+    "disclaimer": "Страницы определены по вёрстке LibreOffice, возможна погрешность ±1–2 страницы."
+  },
+  "volume": {
+    "method": "layout",
+    "pages_main": 62.5,
+    "by_section": [
+      {
+        "title": "Введение",
+        "pages": 3
+      },
+      {
+        "title": "Глава 1",
+        "pages": 25.5
+      }
+    ],
+    "estimate_formula": null
+  },
+  "structure": [
+    {
+      "title": "Введение",
+      "kind": "INTRO",
+      "number": null,
+      "detection": "style",
+      "confidence": 1.0,
+      "paragraph_idx": 12,
+      "children": []
+    },
+    {
+      "title": "Теоретические основы",
+      "kind": "CHAPTER",
+      "number": "1",
+      "detection": "style",
+      "confidence": 1.0,
+      "paragraph_idx": 40,
+      "children": [
+        {
+          "title": "Понятие тревожности",
+          "kind": "SUBSECTION",
+          "number": "1.1",
+          "detection": "style",
+          "confidence": 1.0,
+          "paragraph_idx": 41,
+          "children": []
+        }
+      ]
+    },
+    {
+      "title": "Заключение",
+      "kind": "CONCLUSION",
+      "number": null,
+      "detection": "pattern",
+      "confidence": 0.9,
+      "paragraph_idx": 300,
+      "children": []
+    }
+  ],
+  "summary": {
+    "violation": 2,
+    "suspicion": 1,
+    "not_checked": 1,
+    "not_run": 1,
+    "passed_rules": [
+      "STR-01",
+      "VOL-01"
+    ],
+    "noise_warning": null
+  },
+  "blocks": [
+    {
+      "id": "tables",
+      "title": "Таблицы",
+      "rule_results": [
+        {
+          "rule_id": "TBL-01",
+          "title": "Подпись таблицы",
+          "block": "tables",
+          "outcome": "findings",
+          "findings": [
+            {
+              "id": "000000000001",
+              "rule_id": "TBL-01",
+              "title": "Подпись таблицы",
+              "block": "tables",
+              "level": "violation",
+              "not_run": false,
+              "source": {
+                "doc": "M",
+                "section": "§1"
+              },
+              "message": "Таблица без подписи над таблицей.",
+              "values": {},
+              "locations": [
+                {
+                  "section_path": [
+                    "1 Теоретические основы",
+                    "1.1 Понятие тревожности"
+                  ],
+                  "paragraph_idx": null,
+                  "table": {
+                    "number_label": "таблица №2 без подписи",
+                    "table_idx": 2,
+                    "row": 1,
+                    "col": 1
+                  },
+                  "quote": "Показатель",
+                  "highlight": [
+                    0,
+                    9
+                  ],
+                  "page": 21
+                }
+              ],
+              "count": 1,
+              "hint": "Добавьте подпись «Таблица N — Название».",
+              "method": "style",
+              "fingerprint": "TBL-01:1",
+              "origin": "rules"
+            }
+          ],
+          "artifacts": {},
+          "skipped_reason": null
+        }
+      ]
+    },
+    {
+      "id": "numbering",
+      "title": "Нумерация",
+      "rule_results": [
+        {
+          "rule_id": "NUM-02",
+          "title": "Сквозная нумерация",
+          "block": "numbering",
+          "outcome": "findings",
+          "findings": [
+            {
+              "id": "000000000003",
+              "rule_id": "NUM-02",
+              "title": "Сквозная нумерация",
+              "block": "numbering",
+              "level": "violation",
+              "not_run": false,
+              "source": {
+                "doc": "M",
+                "section": "§1"
+              },
+              "message": "Нумерация таблиц прерывается: после 3 идёт 5.",
+              "values": {
+                "expected": "4",
+                "found": "5"
+              },
+              "locations": [
+                {
+                  "section_path": [
+                    "2 Эмпирическое исследование"
+                  ],
+                  "paragraph_idx": 120,
+                  "table": null,
+                  "quote": "Таблица 5 — Результаты",
+                  "highlight": [
+                    0,
+                    9
+                  ],
+                  "page": 44
+                }
+              ],
+              "count": 1,
+              "hint": null,
+              "method": "regex",
+              "fingerprint": "NUM-02:3",
+              "origin": "rules"
+            }
+          ],
+          "artifacts": {},
+          "skipped_reason": null
+        }
+      ]
+    },
+    {
+      "id": "wording",
+      "title": "Формулировки",
+      "rule_results": [
+        {
+          "rule_id": "LEX-01",
+          "title": "Просторечные обороты",
+          "block": "wording",
+          "outcome": "findings",
+          "findings": [
+            {
+              "id": "000000000002",
+              "rule_id": "LEX-01",
+              "title": "Просторечные обороты",
+              "block": "wording",
+              "level": "suspicion",
+              "not_run": false,
+              "source": {
+                "doc": "M",
+                "section": "§1"
+              },
+              "message": "Встречаются разговорные выражения.",
+              "values": {
+                "phrases": [
+                  "очень",
+                  "как бы"
+                ]
+              },
+              "locations": [
+                {
+                  "section_path": [
+                    "Введение"
+                  ],
+                  "paragraph_idx": 15,
+                  "table": null,
+                  "quote": "Это очень важная тема для нас",
+                  "highlight": [
+                    0,
+                    9
+                  ],
+                  "page": 5
+                },
+                {
+                  "section_path": [
+                    "Введение"
+                  ],
+                  "paragraph_idx": 18,
+                  "table": null,
+                  "quote": "Как бы известно, что",
+                  "highlight": [
+                    0,
+                    8
+                  ],
+                  "page": 5
+                }
+              ],
+              "count": 2,
+              "hint": null,
+              "method": "morph",
+              "fingerprint": "LEX-01:2",
+              "origin": "rules"
+            }
+          ],
+          "artifacts": {},
+          "skipped_reason": null
+        }
+      ]
+    },
+    {
+      "id": "hypothesis",
+      "title": "Гипотезы",
+      "rule_results": [
+        {
+          "rule_id": "HYP-01",
+          "title": "Проверяемость гипотез",
+          "block": "hypothesis",
+          "outcome": "not_run",
+          "findings": [],
+          "artifacts": {},
+          "skipped_reason": "Не найден раздел «Введение» с гипотезой"
+        }
+      ]
+    },
+    {
+      "id": "structure",
+      "title": "Структура",
+      "rule_results": [
+        {
+          "rule_id": "STR-01",
+          "title": "Обязательные разделы",
+          "block": "structure",
+          "outcome": "passed",
+          "findings": [],
+          "artifacts": {},
+          "skipped_reason": null
+        }
+      ]
+    }
+  ],
+  "not_checked": [
+    {
+      "id": "NC-01.1",
+      "title": "Соответствие выводов результатам",
+      "source": "§4",
+      "hint": "Проверьте вручную.",
+      "helper": "matrix"
+    }
+  ],
+  "matrix": {
+    "rows": [
+      {
+        "kind": "task",
+        "label": "Задача 1",
+        "statement": "Изучить тревожность студентов",
+        "statement_loc": {
+          "section_path": [
+            "Введение"
+          ],
+          "paragraph_idx": 14,
+          "table": null,
+          "quote": "Задачи: 1) изучить тревожность",
+          "highlight": null,
+          "page": null
+        },
+        "is_theoretical": false,
+        "cells": {
+          "theory": {
+            "status": "auto",
+            "text": "1.1",
+            "candidates": [],
+            "locations": []
+          },
+          "instrument": {
+            "status": "auto",
+            "text": "Шкала Спилбергера",
+            "candidates": [],
+            "locations": []
+          },
+          "calculation": {
+            "status": "auto",
+            "text": "t-критерий",
+            "candidates": [],
+            "locations": []
+          },
+          "result": {
+            "status": "auto",
+            "text": "Таблица 3",
+            "candidates": [],
+            "locations": []
+          },
+          "conclusion": {
+            "status": "gap",
+            "text": "",
+            "candidates": [
+              "Вывод по главе 2"
+            ],
+            "locations": []
+          }
+        }
+      }
+    ],
+    "stats": {
+      "rows": 1,
+      "gaps": 1,
+      "auto_cells": 4,
+      "warnings": []
+    }
+  },
+  "warnings": [
+    "Раздел «Заключение» определён эвристически (уверенность 0.6)."
+  ]
+}

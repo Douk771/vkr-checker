@@ -1,0 +1,198 @@
+{
+  "schema_version": "1.0",
+  "service_version": "0.1.0",
+  "checked_at": "2026-01-01T12:00:00Z",
+  "file": {
+    "name": "vkr_nolayout.docx",
+    "size_bytes": 3200000,
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "layout": {
+    "status": "failed",
+    "engine": null,
+    "page_count": null,
+    "coverage": null,
+    "reason": "LibreOffice не уложился в 20 с",
+    "font_substitutions": [],
+    "disclaimer": "Вёрстка недоступна: объём оценён по тексту, номера страниц не показываются."
+  },
+  "volume": {
+    "method": "estimate",
+    "pages_main": 58.0,
+    "by_section": [
+      {
+        "title": "Введение",
+        "pages": 3
+      }
+    ],
+    "estimate_formula": "знаков с пробелами / 1800"
+  },
+  "structure": [
+    {
+      "title": "Введение",
+      "kind": "INTRO",
+      "number": null,
+      "detection": "style",
+      "confidence": 1.0,
+      "paragraph_idx": 12,
+      "children": []
+    },
+    {
+      "title": "Теоретические основы",
+      "kind": "CHAPTER",
+      "number": "1",
+      "detection": "style",
+      "confidence": 1.0,
+      "paragraph_idx": 40,
+      "children": [
+        {
+          "title": "Понятие тревожности",
+          "kind": "SUBSECTION",
+          "number": "1.1",
+          "detection": "style",
+          "confidence": 1.0,
+          "paragraph_idx": 41,
+          "children": []
+        }
+      ]
+    },
+    {
+      "title": "Заключение",
+      "kind": "CONCLUSION",
+      "number": null,
+      "detection": "pattern",
+      "confidence": 0.9,
+      "paragraph_idx": 300,
+      "children": []
+    }
+  ],
+  "summary": {
+    "violation": 0,
+    "suspicion": 0,
+    "not_checked": 1,
+    "not_run": 0,
+    "passed_rules": [
+      "STR-01",
+      "TBL-01",
+      "VOL-01"
+    ],
+    "noise_warning": null
+  },
+  "blocks": [
+    {
+      "id": "structure",
+      "title": "Структура",
+      "rule_results": [
+        {
+          "rule_id": "STR-01",
+          "title": "Обязательные разделы",
+          "block": "structure",
+          "outcome": "passed",
+          "findings": [],
+          "artifacts": {},
+          "skipped_reason": null
+        }
+      ]
+    },
+    {
+      "id": "tables",
+      "title": "Таблицы",
+      "rule_results": [
+        {
+          "rule_id": "TBL-01",
+          "title": "Подпись таблицы",
+          "block": "tables",
+          "outcome": "passed",
+          "findings": [],
+          "artifacts": {},
+          "skipped_reason": null
+        }
+      ]
+    },
+    {
+      "id": "volume",
+      "title": "Объём",
+      "rule_results": [
+        {
+          "rule_id": "VOL-01",
+          "title": "Объём основной части",
+          "block": "volume",
+          "outcome": "passed",
+          "findings": [],
+          "artifacts": {},
+          "skipped_reason": null
+        }
+      ]
+    }
+  ],
+  "not_checked": [
+    {
+      "id": "NC-01.1",
+      "title": "Соответствие выводов результатам",
+      "source": "§4",
+      "hint": "Проверьте вручную.",
+      "helper": "matrix"
+    }
+  ],
+  "matrix": {
+    "rows": [
+      {
+        "kind": "task",
+        "label": "Задача 1",
+        "statement": "Изучить тревожность студентов",
+        "statement_loc": {
+          "section_path": [
+            "Введение"
+          ],
+          "paragraph_idx": 14,
+          "table": null,
+          "quote": "Задачи: 1) изучить тревожность",
+          "highlight": null,
+          "page": null
+        },
+        "is_theoretical": false,
+        "cells": {
+          "theory": {
+            "status": "auto",
+            "text": "1.1",
+            "candidates": [],
+            "locations": []
+          },
+          "instrument": {
+            "status": "auto",
+            "text": "Шкала Спилбергера",
+            "candidates": [],
+            "locations": []
+          },
+          "calculation": {
+            "status": "auto",
+            "text": "t-критерий",
+            "candidates": [],
+            "locations": []
+          },
+          "result": {
+            "status": "auto",
+            "text": "Таблица 3",
+            "candidates": [],
+            "locations": []
+          },
+          "conclusion": {
+            "status": "auto",
+            "text": "Вывод 1",
+            "candidates": [],
+            "locations": []
+          }
+        }
+      }
+    ],
+    "stats": {
+      "rows": 1,
+      "gaps": 0,
+      "auto_cells": 5,
+      "warnings": []
+    }
+  },
+  "warnings": [
+    "Вёрстка недоступна: объём оценён по тексту."
+  ]
+}
