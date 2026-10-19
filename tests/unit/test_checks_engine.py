@@ -5,7 +5,7 @@ import pytest
 from tests.fixtures.model_factory import DocBuilder
 from vkr_checker.checks.base import CheckContext, Need, Source, new_finding, result_of
 from vkr_checker.checks.engine import BLOCK_ORDER, run_rule, run_rules
-from vkr_checker.checks.registry import all_rules, clear_for_tests, register
+from vkr_checker.checks.registry import all_rules, clear_for_tests, register, restore_for_tests
 from vkr_checker.model.document import Layout
 from vkr_checker.model.finding import Finding
 
@@ -229,7 +229,7 @@ def test_registry_is_sorted_and_rejects_duplicates():
         with pytest.raises(ValueError):
             register(A)
     finally:
-        clear_for_tests()
+        restore_for_tests()
 
 
 def test_block_order_matches_contract_blocks():
