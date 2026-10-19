@@ -16,16 +16,34 @@ _HYP_WORD = re.compile(r"гипотез\w*", re.IGNORECASE)
 _HYP_HEAD = re.compile(
     r"^\s*(?:рабоч\w+\s+|общ\w+\s+|частн\w+\s+)?гипотез\w*\s*\d*\s*[:.\-–—]?\s*", re.IGNORECASE
 )
-# Только глагольные и краткие причастные формы статуса; «для подтверждения гипотезы» не в счёт.
-_CONFIRMED = re.compile(
-    r"подтверд(?:ил\w*|ит\w*)|подтвержд(?:ен[аоы]?|ён|ается|аются|ала|ало|али|ался|ались)(?!\w)",
+# Статус гипотезы распознаётся по оборотам, которые сообщают итог проверки:
+# прошедшее время и краткие причастия («подтвердилась», «подтверждена»),
+# «удалось подтвердить», «получила/нашла подтверждение», «свидетельствуют о
+# подтверждении», «опровергнута». Цель и будущее время («для подтверждения»,
+# «подтвердить», «подтвердится») статусом не считаются.
+_W = r"(?:(?!не\s)[\w-]+\s+)"  # слово-вставка, но не частица «не»
+_NEG_BEFORE = re.compile(r"(?<!\w)не\s+(?:был[аио]?\s+)?$", re.IGNORECASE)
+_STATUS_HITS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"(?<!\w)(?:подтвердил\w*|подтвержд(?:ена|ено|ены|ен|ён|ается|аются|ал\w*))(?!\w)",
+        re.IGNORECASE,
+    ),
+    re.compile(rf"(?<!\w)(?P<neg>не\s+)?удалось\s+{_W}{{0,2}}подтвердить(?!\w)", re.IGNORECASE),
+    re.compile(rf"(?<!\w)подтвердить\s+{_W}{{0,2}}(?P<neg>не\s+)?удалось(?!\w)", re.IGNORECASE),
+    re.compile(
+        rf"(?<!\w)(?P<neg>не\s+)?(?:получил\w*|нашл\w*|наш[её]л)\s+{_W}{{0,2}}подтвержден\w*",
+        re.IGNORECASE,
+    ),
+    re.compile(rf"(?<!\w)свидетельству\w*\s+{_W}{{0,2}}о\s+подтверждении", re.IGNORECASE),
+)
+_REFUTED = re.compile(r"(?<!\w)опроверг\w*", re.IGNORECASE)
+_PARTIAL = re.compile(
+    r"(?<!\w)(?:частичн\w*|не\s+полностью|не\s+в\s+полной\s+мере|не\s+вполне)(?!\w)",
     re.IGNORECASE,
 )
-STATUS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("not_confirmed", re.compile(r"не\s+(?:был\w*\s+)?подтвер\w+", re.IGNORECASE)),
-    ("partially_confirmed", re.compile(r"частично\s+(?:был\w*\s+)?подтвер\w+", re.IGNORECASE)),
-    ("mostly_confirmed", re.compile(r"в\s+основном\s+(?:был\w*\s+)?подтвер\w+", re.IGNORECASE)),
-    ("confirmed", _CONFIRMED),
+_MOSTLY = re.compile(
+    r"(?<!\w)(?:в\s+основном|в\s+значительной\s+(?:степени|мере)|преимущественно)(?!\w)",
+    re.IGNORECASE,
 )
 STATUS_TITLES = {
     "not_confirmed": "не подтверждена",
@@ -52,10 +70,25 @@ class HypothesisMention:
 
 
 def status_of(text: str) -> str | None:
-    for name, pattern in STATUS_PATTERNS:
-        if pattern.search(text):
-            return name
-    return None
+    """Статус гипотезы в одном предложении или None, если итог не сообщается."""
+    negated = bool(_REFUTED.search(text))
+    found = negated
+    for pattern in _STATUS_HITS:
+        for m in pattern.finditer(text):
+            found = True
+            if m.groupdict().get("neg") or (
+                "neg" not in pattern.groupindex and _NEG_BEFORE.search(text[: m.start()])
+            ):
+                negated = True
+    if not found:
+        return None
+    if _PARTIAL.search(text):
+        return "partially_confirmed"
+    if negated:
+        return "not_confirmed"
+    if _MOSTLY.search(text):
+        return "mostly_confirmed"
+    return "confirmed"
 
 
 def extract_hypothesis_parts(
@@ -93,13 +126,19 @@ def extract_hypothesis_mentions(doc: Document) -> list[HypothesisMention]:
         for i, s in enumerate(sentences):
             if not _HYP_WORD.search(s.text):
                 continue
-            nxt = sentences[i + 1].text if i + 1 < len(sentences) else ""
+            status = status_of(s.text)
+            # Статус в следующем предложении («Гипотеза 2 ... . Она подтвердилась.»)
+            # берём, только если в текущем его нет и следующее не о другой гипотезе.
+            if status is None and i + 1 < len(sentences):
+                nxt = sentences[i + 1].text
+                if not _HYP_WORD.search(nxt):
+                    status = status_of(nxt)
             result.append(
                 HypothesisMention(
                     section_kind=kind,
                     chapter=chapter,
                     text=s.text,
-                    status=status_of(f"{s.text} {nxt}"),
+                    status=status,
                     loc=Mention(p.idx, (s.start, s.end)),
                 )
             )

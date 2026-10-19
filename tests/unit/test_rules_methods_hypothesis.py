@@ -167,7 +167,7 @@ def test_hyp01_noun_confirmation_is_not_a_status():
     assert status_of("Для подтверждения гипотезы применялся критерий Спирмена.") is None
     assert status_of("Гипотеза подтвердилась.") == "confirmed"
     assert status_of("Гипотеза не подтвердилась.") == "not_confirmed"
-    assert status_of("Гипотеза подтверждена частично.") == "confirmed"
+    assert status_of("Гипотеза подтверждена частично.") == "partially_confirmed"
 
 
 def test_hyp01_several_statuses_in_chapter2_all_reported():

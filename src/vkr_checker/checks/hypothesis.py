@@ -106,7 +106,8 @@ class Hyp01HypothesisConsistency:
             m
             for m in ctx.facts.hypothesis_mentions
             if m.section_kind in ("CHAPTER", "CHAPTER_CONCLUSIONS")
-            and (m.chapter is None or m.chapter >= 2)
+            and m.chapter is not None
+            and m.chapter >= 2
         ]
 
     def _missing_in_chapter2(self, ctx: CheckContext):
@@ -146,8 +147,11 @@ class Hyp01HypothesisConsistency:
                 fingerprint="HYP-01|status_mismatch",
                 method="morph",
                 locations=[mention_location(ctx, chapter[0].loc), mention_location(ctx, m.loc)],
-                values={"status": m.status, "status_chapter2": in_chapter[0],
-                        "statuses_chapter2": in_chapter},
+                values={
+                    "status": m.status,
+                    "status_chapter2": in_chapter[0],
+                    "statuses_chapter2": in_chapter,
+                },
                 hint="Статус гипотезы должен совпадать в главе 2 и в заключении.",
             )  # fmt: skip
         ]
