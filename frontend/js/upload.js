@@ -111,7 +111,9 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
     const opts = {
       onExportMatrix: async () => {
         try {
-          const blob = await state.api.exportMatrix(buildExportPayload(report));
+          const blob = await withAuthRetry(
+            () => state.api.exportMatrix(buildExportPayload(report)),
+            () => requestLogin());
           saveBlob(blob, `${report.file.name.replace(/\.docx$/i, "")}_матрица.xlsx`);
         } catch (e) {
           const err = new Error(userMessage(e));
