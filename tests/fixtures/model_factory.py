@@ -81,7 +81,8 @@ class DocBuilder:
         return t
 
     def build(self, with_layout: bool = False) -> Document:
-        ends = [s["start_idx"] - 1 for s in self._sections[1:]] + [len(self._paras)] * bool(self._sections)
+        ends = [s["start_idx"] - 1 for s in self._sections[1:]]
+        ends += [len(self._paras)] * bool(self._sections)
         sections = []
         for s, end in zip(self._sections, ends, strict=True):
             children = tuple(c["id"] for c in self._sections if c["parent_id"] == s["id"])
