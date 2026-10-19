@@ -33,6 +33,8 @@ RULE_MODULES = (
     "vkr_checker.checks.volume",
     "vkr_checker.checks.numbering",
     "vkr_checker.checks.bibliography",
+    "vkr_checker.checks.intro",
+    "vkr_checker.checks.consistency",
 )  # явный список: порядок импорта детерминирован, автосканирования нет
 _loaded = False
 _stash: dict[str, Rule] | None = None
