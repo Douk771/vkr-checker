@@ -1,12 +1,33 @@
 // Точка входа UI-01. Загрузка файлов и отчёты подключаются в F-03/F-14.
 import { createApi } from "/js/api.js";
 import { userMessage } from "/js/errors.js";
+import { initUpload } from "/js/upload.js";
 import { interpretHealth, LAYOUT_BANNER_TEXT } from "/js/health.js";
 
 const api = createApi();
 const $ = (id) => document.getElementById(id);
 
 export const state = { health: null, limits: null, api };
+
+let loginWaiter = null;
+
+/** Показывает форму входа и ждёт результата; true - вошли, false - отмена. */
+function requestLogin(signal) {
+  show("login-panel", true);
+  $("password").focus();
+  return new Promise((resolve) => {
+    loginWaiter = resolve;
+    if (signal) signal.addEventListener("abort", () => cancelLoginWait(), { once: true });
+  });
+}
+
+function cancelLoginWait() {
+  if (!loginWaiter) return;
+  const done = loginWaiter;
+  loginWaiter = null;
+  show("login-panel", false);
+  done(false);
+}
 
 function show(id, on) { $(id).hidden = !on; }
 
@@ -60,6 +81,13 @@ async function onLogin(event) {
     await api.login(password);
     $("password").value = "";
     applyHealth(await api.getHealth());
+    if (loginWaiter) {
+      const done = loginWaiter;
+      loginWaiter = null;
+      show("login-panel", false);
+      show("workspace", true);
+      done(true);
+    }
   } catch (e) {
     error.textContent = userMessage(e);
     error.hidden = false;
@@ -68,6 +96,7 @@ async function onLogin(event) {
   }
 }
 
+initUpload(state, { requestLogin, cancelLoginWait });
 $("login-form").addEventListener("submit", onLogin);
 $("startup-retry").addEventListener("click", start);
 start();

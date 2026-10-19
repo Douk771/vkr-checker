@@ -41,3 +41,14 @@ h2 { font-size: 1.25rem; margin-bottom: var(--s3); }
 .btn[disabled] { opacity: .6; cursor: progress; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 [hidden] { display: none !important; }
+.modes { display: flex; gap: var(--s4); margin: var(--s3) 0; }
+.mode { cursor: pointer; font-weight: 600; }
+.upload { display: grid; gap: var(--s3); }
+.drop { background: var(--surface); border: 2px dashed var(--line); border-radius: var(--radius);
+  padding: var(--s3); display: grid; gap: var(--s2); }
+.drop--over { border-color: var(--accent); background: #eef4fb; }
+.drop__hint { margin: 0; font-size: .875rem; }
+.upload__actions { display: flex; gap: var(--s3); }
+#progress { margin-top: var(--s3); }
+.result__bar { display: flex; gap: var(--s3); align-items: center; margin: var(--s4) 0 var(--s2); }
+#run-error { margin-top: var(--s3); }
