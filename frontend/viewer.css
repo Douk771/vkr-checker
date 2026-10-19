@@ -38,3 +38,12 @@ mark { background: #ffe066; color: inherit; text-decoration: underline; }
 .empty { color: var(--muted); }
 :focus-visible { outline: 3px solid #1a56db; outline-offset: 2px; }
 @media print { body { background: #fff; } .filters { display: none; } .finding { break-inside: avoid; } }
+.table-wrap { overflow-x: auto; margin: 8px 0; }
+.data { border-collapse: collapse; width: 100%; background: var(--surface); font-size: .9rem; }
+.data th, .data td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+.data thead th { background: var(--n-bg); color: var(--n-ink); }
+.cell--gap { background: var(--v-bg); color: var(--v-ink); }
+.cell--auto { background: #e6f2ea; color: #14452a; }
+.cell--na { background: var(--n-bg); color: var(--n-ink); }
+.cell__status { display: block; font-size: .8rem; text-transform: uppercase; letter-spacing: .03em; }
+.artifact summary { cursor: pointer; color: var(--muted); }

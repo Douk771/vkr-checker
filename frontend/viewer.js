@@ -3,6 +3,7 @@ import {
   FILTER_KEYS, LEVEL_LABELS, findingKey, levelLabel, pageLabel, splitQuote,
   filterBlocks, layoutNote, volumeNote,
 } from "./viewer_logic.js";
+import { ruleTables, CELL_STATUS_LABELS, MATRIX_COLUMNS, ROW_KIND_LABELS } from "./js/artifacts.js";
 
 function el(tag, { cls, text, attrs } = {}, children = []) {
   const node = document.createElement(tag);
@@ -73,6 +74,62 @@ function renderRule(rule, layout) {
     for (const f of rule.findings) ul.append(renderFinding(f, layout));
     sec.append(ul);
   }
+  for (const t of ruleTables(rule)) sec.append(renderTable(t.title, t.table));
+  return sec;
+}
+
+function renderTable(title, table) {
+  const head = el("tr", {}, table.columns.map((c) => el("th", { text: c, attrs: { scope: "col" } })));
+  const body = table.rows.map((r) => el("tr", {}, r.map((c) => el("td", { text: c }))));
+  return el("details", { cls: "artifact" }, [
+    el("summary", { text: title }),
+    el("div", { cls: "table-wrap" }, [el("table", { cls: "data" }, [el("thead", {}, [head]), el("tbody", {}, body)])]),
+  ]);
+}
+
+function renderMatrix(matrix, onExport) {
+  const rows = (matrix && matrix.rows) || [];
+  const sec = el("section", { cls: "matrix", attrs: { id: "matrix" } }, [el("h2", { text: "Матрица соответствия" })]);
+  if (onExport) {
+    const btn = el("button", { cls: "btn btn--ghost", text: "Скачать .xlsx", attrs: { type: "button" } });
+    const status = el("span", { cls: "muted", attrs: { role: "status" } });
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      status.textContent = "Формируется…";
+      try { await onExport(); status.textContent = ""; }
+      catch (e) { status.textContent = (e && e.userMessage) || "Не удалось сформировать файл"; }
+      finally { btn.disabled = false; }
+    });
+    sec.append(el("p", {}, [btn, status]));
+  }
+  for (const w of (matrix && matrix.stats && matrix.stats.warnings) || []) sec.append(el("p", { cls: "note", text: w }));
+  if (!rows.length) {
+    sec.append(el("p", { cls: "empty", text: "Строки матрицы не построены: в работе не найдены гипотеза, положения или задачи." }));
+    return sec;
+  }
+  const st = matrix.stats;
+  sec.append(el("p", { cls: "muted", text: `Строк: ${st.rows}; пробелов: ${st.gaps}; найдено автоматически: ${st.auto_cells}` }));
+  const head = el("tr", {}, [el("th", { text: "Что проверяется", attrs: { scope: "col" } }),
+    ...MATRIX_COLUMNS.map(([, t]) => el("th", { text: t, attrs: { scope: "col" } }))]);
+  const body = rows.map((row) => {
+    const first = el("th", { attrs: { scope: "row" } }, [
+      el("strong", { text: `${ROW_KIND_LABELS[row.kind] || row.kind} ${row.label}` }),
+      el("div", { text: row.statement }),
+      row.is_theoretical ? el("div", { cls: "muted", text: "теоретическая" }) : null,
+    ]);
+    const cells = MATRIX_COLUMNS.map(([key]) => {
+      const c = row.cells[key];
+      const td = el("td", { cls: `cell cell--${c.status === "n/a" ? "na" : c.status}` });
+      td.append(el("strong", { cls: "cell__status", text: CELL_STATUS_LABELS[c.status] || c.status }));
+      if (c.text) td.append(el("div", { text: c.text }));
+      if (c.status === "gap" && c.candidates.length) {
+        td.append(el("div", { cls: "muted", text: `Возможно: ${c.candidates.join("; ")}` }));
+      }
+      return td;
+    });
+    return el("tr", {}, [first, ...cells]);
+  });
+  sec.append(el("div", { cls: "table-wrap" }, [el("table", { cls: "data matrix__table" }, [el("thead", {}, [head]), el("tbody", {}, body)])]));
   return sec;
 }
 
@@ -129,7 +186,7 @@ function renderNotChecked(items) {
   return el("section", { attrs: { id: "not-checked" } }, [el("h2", { text: "Не проверяется автоматически" }), ul]);
 }
 
-export function renderReport(report, root) {
+export function renderReport(report, root, { onExportMatrix } = {}) {
   const filters = new Set(["violation", "suspicion", "not_run"]);
   let showPassed = false;
   root.replaceChildren();
@@ -165,11 +222,11 @@ export function renderReport(report, root) {
     report.structure.length ? renderStructure(report.structure) : el("p", { cls: "muted", text: "Структура не распознана." }),
   ]);
 
-  root.append(renderHeader(report), renderSummary(report), bar, results, structure, renderNotChecked(report.not_checked));
+  root.append(renderHeader(report), renderSummary(report), bar, results, renderMatrix(report.matrix, onExportMatrix), structure, renderNotChecked(report.not_checked));
   redraw();
 }
 
-/** Для report_viewer.html: читает JSON из <script id="report-data">. */
+/** Для report_viewer.html: читает JSON из элемента report-data. */
 export function renderFromDocument(doc = document) {
   const root = doc.getElementById("rv-root");
   const data = doc.getElementById("report-data");
