@@ -23,6 +23,9 @@ KIND_TITLES = {
 SRC = Source("CH", "Данные и цифры")
 
 
+_PEOPLE_UNIT = re.compile(r"чел|респондент|испытуем|участник|\bn\s*=", re.IGNORECASE)
+
+
 def kind_title(kind: str) -> str:
     if kind.startswith("group_n:"):
         return f"численность группы «{kind.split(':', 1)[1]}»"
@@ -58,8 +61,11 @@ class Con01SameQuantities:
         ]
         groups: dict[str, list] = defaultdict(list)
         for q in quantities:
-            if q.qualifier == "" and not q.kind.startswith("percent_of:"):
-                groups[q.kind].append(q)
+            if q.qualifier != "" or q.kind.startswith("percent_of:"):
+                continue
+            if q.kind.startswith("group_n:") and not _PEOPLE_UNIT.search(q.raw):
+                continue  # «в учебной группе (Иванов, 2015)»: это год, а не численность
+            groups[q.kind].append(q)
         out = []
         for kind in sorted(groups):
             items = groups[kind]
