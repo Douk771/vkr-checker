@@ -63,6 +63,11 @@ class Thresholds:
     TBL_TITLE_RATIO: float = 80
     TBL_CONTENT_JACCARD: float = 0.6
     ANCHOR_CHANGED: float = 0.95
+    SEC_CONTENT_CHARS: int = 500
+    SEC_CONTENT_MIN_CHARS: int = 30
+    MOVE_LEN_TOL: float = 0.3
+    PARA_PAIR_WINDOW: int = 30
+    MAX_NUMBER_CHANGES: int = 500
     # отчёт
     COLLAPSE_SHOW_LOCATIONS: int = 5
     NOISE_SUSPICION_BUDGET: int = 50
