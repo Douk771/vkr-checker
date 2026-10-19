@@ -57,7 +57,7 @@ def main() -> int:
             pstats.Stats(prof).sort_stats("cumtime").print_stats(25)
 
     print(
-        f"check   {args.pages} стр.: {t_check:6.2f} с (бюджет {CHECK_BUDGET_S:.0f} с, с вёрсткой +~1 с)"
+        f"check   {args.pages} стр.: {t_check:6.2f} с (бюджет {CHECK_BUDGET_S:.0f} с)"
     )
     print(f"compare {args.pages} стр.: {t_cmp:6.2f} с (бюджет {COMPARE_BUDGET_S:.0f} с)")
     return 0 if t_check <= CHECK_BUDGET_S and t_cmp <= COMPARE_BUDGET_S else 1
