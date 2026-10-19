@@ -52,7 +52,7 @@ def test_clean_has_all_sections_tables_figures(tmp_path):
         "ГЛАВА 2",
         "ЗАКЛЮЧЕНИЕ",
         "СПИСОК",
-        "ПРИЛОЖЕНИЕ 1",
+        "ПРИЛОЖЕНИЕ А",
     ):
         assert any(h.startswith(needle) for h in headings), needle
     assert len(doc.tables) == 2

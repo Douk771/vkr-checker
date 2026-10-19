@@ -55,12 +55,7 @@ def test_compare_report_valid(pipe, fixture_path):
     assert not _errors(_dump(report), "CompareReport")
 
 
-@pytest.mark.xfail(
-    reason="clean-фикстура X-02 не дотягивает до эталона: на ней срабатывают STR-02/03/05, INT-01, "
-    "TBL-03..05/08, NUM-02 (генератор нужно доработать, см. отчёт B-70)",
-    strict=True,
-)
 def test_clean_fixture_has_no_violations(pipe, fixture_path):
     data = _dump(pipe.check(_upload(fixture_path("clean_70p"))))
     findings = [f for b in data["blocks"] for r in b["rule_results"] for f in r["findings"]]
-    assert not [f for f in findings if f["level"] == "violation" and not f["not_run"]]
+    assert not [f for f in findings if f["level"] in ("violation", "suspicion") and not f["not_run"]]
