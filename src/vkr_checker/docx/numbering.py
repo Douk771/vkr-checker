@@ -23,13 +23,21 @@ ROMAN = (
 )  # fmt: skip
 
 
+MAX_WORD_NUMBER = 32767  # верхняя граница значений нумерации в Word
+
+
+def _clamp_number(n: int) -> int:
+    return max(0, min(n, MAX_WORD_NUMBER))
+
+
 def _letters(n: int, alphabet: str) -> str:
     """Word: a..z, aa..zz, aaa..: буква повторяется."""
-    n = max(n, 1)
+    n = max(min(n, MAX_WORD_NUMBER), 1)
     return alphabet[(n - 1) % len(alphabet)] * ((n - 1) // len(alphabet) + 1)
 
 
 def _roman(n: int) -> str:
+    n = _clamp_number(n)
     out = []
     for value, sym in ROMAN:
         while n >= value:
@@ -45,6 +53,7 @@ KNOWN_FORMATS = {
 
 
 def format_number(n: int, fmt: str) -> str:
+    n = _clamp_number(n)
     if fmt == "decimalZero":
         return f"{n:02d}"
     if fmt == "russianLower":
@@ -159,7 +168,7 @@ class NumberingResolver:
         if node.find(qn("w:legacy")) is not None:
             self._warn("нумерация: w:legacy, метка определена по лучшей догадке")
         return _Level(
-            start=_int(attr(node.find(qn("w:start")), "val"), 1) or 0,
+            start=self._bounded(_int(attr(node.find(qn("w:start")), "val"), 1) or 0, "w:start"),
             fmt=fmt,
             text=attr(node.find(qn("w:lvlText")), "val") or "",
             restart=_int(attr(node.find(qn("w:lvlRestart")), "val")),
@@ -168,13 +177,20 @@ class NumberingResolver:
             p_style=attr(node.find(qn("w:pStyle")), "val"),
         )
 
+    def _bounded(self, value: int, what: str) -> int:
+        if 0 <= value <= MAX_WORD_NUMBER:
+            return value
+        self._warn(f"нумерация: {what}={value} вне диапазона 0..{MAX_WORD_NUMBER}, значение ограничено")
+        return _clamp_number(value)
+
     def _start_override(self, num_id: int, ilvl: int) -> int | None:
         num = self._num.get(num_id)
         if num is None:
             return None
         for ov in num.findall(qn("w:lvlOverride")):
             if _int(attr(ov, "ilvl")) == ilvl:
-                return _int(attr(ov.find(qn("w:startOverride")), "val"))
+                value = _int(attr(ov.find(qn("w:startOverride")), "val"))
+                return None if value is None else self._bounded(value, "w:startOverride")
         return None
 
     # --- numPr абзаца ---------------------------------------------------------------------

@@ -202,3 +202,11 @@ def test_level_ppr_exposed_for_indents():
 
 def test_no_numbering_part():
     assert NumberingResolver(None).label(ppr(1, 0)) is None
+
+
+def test_huge_start_is_clamped_and_label_stays_short():
+    from vkr_checker.docx.numbering import MAX_WORD_NUMBER, format_number
+
+    assert len(format_number(2_000_000_000, "lowerLetter")) <= MAX_WORD_NUMBER // 26 + 1
+    assert len(format_number(2_000_000_000, "lowerRoman")) < 100
+    assert format_number(-5, "decimal") == "0"

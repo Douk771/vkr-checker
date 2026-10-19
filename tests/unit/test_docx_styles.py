@@ -413,3 +413,10 @@ def test_toggle_xor_between_para_and_char_style():
     base = s.resolve_paragraph(para(style="Bold"))
     assert s.resolve_run(run(), base).bold
     assert not s.resolve_run(run('<w:rStyle w:val="Strong"/>'), base).bold
+
+
+def test_non_finite_numbers_are_ignored():
+    from vkr_checker.docx.styleprops import _num
+
+    assert _num("inf") is None and _num("nan") is None and _num("-inf") is None
+    assert _num("1.5") == 1.5

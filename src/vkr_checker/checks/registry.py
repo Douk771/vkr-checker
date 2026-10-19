@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import importlib
+import threading
 from collections.abc import Callable
 from typing import TypeVar
 
@@ -41,16 +42,21 @@ RULE_MODULES = (
     "vkr_checker.checks.tasks",
 )  # явный список: порядок импорта детерминирован, автосканирования нет
 _loaded = False
+_load_lock = threading.RLock()
 _stash: dict[str, Rule] | None = None
 
 
 def load_rule_modules() -> None:
     """Импортирует модули с правилами (идемпотентно); декораторы @register наполняют реестр."""
     global _loaded
-    if not _loaded:
-        _loaded = True
+    if _loaded:
+        return
+    with _load_lock:  # RLock: сами модули при импорте могут вызвать реестр в том же потоке
+        if _loaded:
+            return
         for name in RULE_MODULES:
             importlib.import_module(name)
+        _loaded = True
 
 
 def all_rules() -> list[Rule]:

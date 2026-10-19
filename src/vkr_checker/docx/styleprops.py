@@ -11,6 +11,7 @@ firstLine > 0, hanging < 0), line (число), line_rule, before, after (("twip
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from lxml import etree
@@ -41,9 +42,10 @@ def _num(value: str | None) -> float | None:
     if value is None:
         return None
     try:
-        return float(value)
+        number = float(value)
     except ValueError:
         return None
+    return number if math.isfinite(number) else None
 
 
 def _indent_group(
