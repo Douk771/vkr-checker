@@ -66,6 +66,7 @@ def test_leading_equals_is_text_not_formula():
 
 
 def test_control_chars_in_properties_do_not_break_save():
-    wb = load_workbook(BytesIO(build_matrix_xlsx(make_matrix(), "f\x02.docx", service_version="1\x05.0")))
+    data = build_matrix_xlsx(make_matrix(), "f\x02.docx", service_version="1\x05.0")
+    wb = load_workbook(BytesIO(data))
     assert wb.properties.creator == "vkr-checker 1.0"
     assert "\x02" not in wb.properties.title

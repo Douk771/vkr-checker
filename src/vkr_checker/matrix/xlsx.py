@@ -143,7 +143,8 @@ def build_matrix_xlsx(
     _write_places(wb.create_sheet(), matrix)
     props = wb.properties
     props.title = clean(f"Матрица связности: {file_name}")[:250]
-    props.creator = clean(f"vkr-checker {service_version}" if service_version else "vkr-checker")[:250]
+    creator = f"vkr-checker {service_version}" if service_version else "vkr-checker"
+    props.creator = clean(creator)[:250]
     if checked_at is not None:
         props.created = checked_at.replace(tzinfo=None)
     buf = BytesIO()
