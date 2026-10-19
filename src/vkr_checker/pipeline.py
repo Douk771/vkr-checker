@@ -20,26 +20,27 @@ from vkr_checker.checks.base import CheckContext
 from vkr_checker.checks.engine import run_rules
 from vkr_checker.checks.registry import all_rules
 from vkr_checker.config import Settings
+from vkr_checker.diff.compare import build_compare_report
+from vkr_checker.diff.model import Side
 from vkr_checker.docx.package import DocxError, DocxPackage, PackageLimits
 from vkr_checker.docx.reader import read_document
 from vkr_checker.layout.estimate import Volume, compute_volume
 from vkr_checker.layout.outcome import LayoutOutcome, compute_layout, with_layout
 from vkr_checker.layout.soffice import SofficeInfo, SofficeRunner
+from vkr_checker.matrix.build import build_matrix, failed_matrix
 from vkr_checker.model.document import Document
 from vkr_checker.report.build import assemble_check_report
 from vkr_checker.report.schema import (
     CheckReport,
+    CompareReport,
     FileInfo,
     LayoutInfo,
-    Matrix,
-    MatrixStats,
     VolumeInfo,
     VolumeSection,
 )
 from vkr_checker.structure import analyze_structure
 from vkr_checker.thresholds import DEFAULT_THRESHOLDS, Thresholds
 from vkr_checker.web.ports import InputFileError
-from vkr_checker.web.stub import StubPipeline
 from vkr_checker.web.upload import UploadedFile
 
 log = logging.getLogger("vkr_checker.pipeline")
@@ -50,7 +51,6 @@ DISCLAIMER_PARTIAL = (
     "проверки по страницам дают не выше подозрения."
 )
 DISCLAIMER_FAILED = "Вёрстка недоступна: объём оценён по тексту, номера страниц не показываются."
-MATRIX_PENDING = "Матрица связности пока не строится."
 LAYOUT_JOIN_GRACE_S = 5
 
 
@@ -60,6 +60,7 @@ class Analysis:
 
     doc: Document
     report: CheckReport
+    ctx: CheckContext
 
 
 def sha256_of(path: Path) -> str:
@@ -93,14 +94,8 @@ def volume_info_of(vol: Volume) -> VolumeInfo:
     )
 
 
-def empty_matrix() -> Matrix:
-    return Matrix(
-        rows=[], stats=MatrixStats(rows=0, gaps=0, auto_cells=0, warnings=[MATRIX_PENDING])
-    )
-
-
 class CheckPipeline:
-    """Реализует web.ports.Pipeline. Сравнение версий подключит B-64."""
+    """Реализует web.ports.Pipeline: проверка одного файла и сравнение двух версий."""
 
     def __init__(
         self,
@@ -117,14 +112,36 @@ class CheckPipeline:
             else None
         )
         self._grace_s = settings.layout_timeout_s + LAYOUT_JOIN_GRACE_S
-        self._stub = StubPipeline()
 
     # --- публичный порт -------------------------------------------------------------------
     def check(self, file: UploadedFile) -> CheckReport:
         return self.analyze(file).report
 
-    def compare(self, old: UploadedFile, new: UploadedFile):
-        return self._stub.compare(old, new)  # заменяется в B-64
+    def compare(self, old: UploadedFile, new: UploadedFile) -> CompareReport:
+        """Обе версии разбираются параллельно, затем строится diff (B-60..B-64)."""
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="compare") as pool:
+            f_old = pool.submit(self.analyze, old)
+            f_new = pool.submit(self.analyze, new)
+            first_error: BaseException | None = None
+            results: list[Analysis] = []
+            for fut in (f_old, f_new):
+                try:
+                    results.append(fut.result())
+                except InputFileError as exc:
+                    first_error = first_error or exc
+            if first_error is not None:
+                raise first_error
+        a_old, a_new = results
+        started = time.monotonic()
+        report = build_compare_report(
+            Side(a_old.doc, a_old.ctx, a_old.report),
+            Side(a_new.doc, a_new.ctx, a_new.report),
+            service_version=__version__,
+            checked_at=datetime.now(timezone.utc),  # noqa: UP017
+            th=self._th,
+        )
+        log.info("compare diff=%.2fs", time.monotonic() - started)
+        return report
 
     # --- разбор ---------------------------------------------------------------------------
     def analyze(self, file: UploadedFile) -> Analysis:
@@ -150,7 +167,7 @@ class CheckPipeline:
                 future = None  # результат учтён; PDF удалится вместе с каталогом
                 doc = with_layout(doc, outcome)
                 laid_out = time.monotonic()
-                report = self._build_report(doc, outcome, file, sha)
+                report, ctx = self._build_report(doc, outcome, file, sha)
         finally:
             if future is not None:
                 self._drain(future)
@@ -160,7 +177,7 @@ class CheckPipeline:
             file.name, file.size, parsed - started, laid_out - parsed,
             time.monotonic() - laid_out, report.layout.status,
         )  # fmt: skip
-        return Analysis(doc, report)
+        return Analysis(doc, report, ctx)
 
     def _join_layout(self, doc: Document, future: Future[Path] | None) -> LayoutOutcome:
         if future is None:
@@ -178,17 +195,23 @@ class CheckPipeline:
 
     def _build_report(
         self, doc: Document, outcome: LayoutOutcome, file: UploadedFile, sha: str
-    ) -> CheckReport:
+    ) -> tuple[CheckReport, CheckContext]:
         ctx = CheckContext.build(doc, self._th)
         results = run_rules(ctx, all_rules())
-        return assemble_check_report(
+        try:
+            matrix = build_matrix(ctx)
+        except Exception as exc:  # noqa: BLE001 - матрица не должна ронять проверку
+            log.error("матрица не построена: %s", type(exc).__name__)
+            matrix = failed_matrix()
+        report = assemble_check_report(
             doc,
             results,
             file=FileInfo(name=file.name, size_bytes=file.size, sha256=sha),
             layout=layout_info_of(doc, outcome),
             volume=volume_info_of(compute_volume(doc, self._th)),
-            matrix=empty_matrix(),
+            matrix=matrix,
             service_version=__version__,
             checked_at=datetime.now(timezone.utc),  # noqa: UP017 - проект поддерживает 3.10
             th=self._th,
         )
+        return report, ctx
