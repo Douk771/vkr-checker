@@ -80,3 +80,39 @@ def jaccard(a: frozenset[str] | set[str], b: frozenset[str] | set[str]) -> float
 
 def clear_cache() -> None:
     _parse.cache_clear()
+
+
+_SURNAME_ENDINGS = (
+    "ого", "его", "ому", "ему", "ыми", "ими", "ым", "им", "ом", "ем", "ой", "ую", "ых",
+    "а", "у", "е", "ы", "я", "ю",
+)  # fmt: skip
+
+
+def surname_normal_form(word: str) -> str:
+    """Фамилия в именительном падеже: pymorphy3 (тег Surn), иначе усечение падежного окончания.
+
+    «Выготского» -> «Выготский», «Леонтьеву» -> «Леонтьев»; неизвестное слово не склоняется.
+    """
+    for parsed in _analyzer().parse(word):
+        if "Surn" in parsed.tag:
+            return parsed.normal_form.capitalize()
+    return word[:1].upper() + word[1:].lower()
+
+
+def surname_key(word: str) -> str:
+    """Ключ для сравнения фамилий: нормальная форма, нижний регистр; для слов, которые
+    pymorphy3 не опознал как фамилию, дополнительно отсекается падежное окончание."""
+    for parsed in _analyzer().parse(word):
+        if "Surn" in parsed.tag:
+            return parsed.normal_form.lower().replace("ё", "е")
+    base = word.lower().replace("ё", "е")
+    for ending in _SURNAME_ENDINGS:
+        if len(base) - len(ending) >= 4 and base.endswith(ending):
+            return base[: -len(ending)]
+    return base
+
+
+def is_known_common_word(word: str) -> bool:
+    """Слово из словаря, которое не может быть фамилией (нет разбора Surn)."""
+    parses = _analyzer().parse(word)
+    return parses[0].is_known and not any("Surn" in p.tag for p in parses)
