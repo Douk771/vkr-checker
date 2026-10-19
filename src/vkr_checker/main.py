@@ -11,12 +11,12 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import Settings, get_settings
 from .layout.soffice import SofficeInfo, probe_soffice
+from .pipeline import CheckPipeline
 from .web.auth import Authenticator, session_router
 from .web.errors import install_error_handlers
 from .web.middleware import BodyLimitMiddleware, RequestContextMiddleware
 from .web.routes import router
 from .web.slots import SlotPool
-from .web.stub import StubPipeline
 
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 REQUEST_OVERHEAD_BYTES = 1024 * 1024
@@ -44,7 +44,7 @@ def create_app(settings: Settings | None = None, layout_info: SofficeInfo | None
     app.state.layout_info = layout_info or probe_soffice(settings.soffice_path)
     app.state.authenticator = Authenticator(settings)
     app.state.slots = SlotPool(settings.max_concurrent_jobs)
-    app.state.pipeline = StubPipeline()  # заменяется настоящим конвейером в B-23
+    app.state.pipeline = CheckPipeline(settings, app.state.layout_info)
 
     install_error_handlers(app)
     app.include_router(router)
