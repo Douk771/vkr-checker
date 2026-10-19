@@ -205,6 +205,23 @@ class StyleSheet:
             style_id = attr(st.find(qn("w:basedOn")), "val")
         return result[::-1]
 
+    def numpr(self, style_id: str | None) -> tuple[int | None, int | None]:
+        """(numId, ilvl) из w:numPr стиля по цепочке basedOn; None - не задано."""
+        num_id: int | None = None
+        ilvl: int | None = None
+        sid = style_id if self.style_exists(style_id) else self._default_para
+        for st in self.chain(sid):
+            numpr = st.find(qn("w:pPr") + "/" + qn("w:numPr"))
+            if numpr is None:
+                continue
+            nid = attr(numpr.find(qn("w:numId")), "val")
+            lvl = attr(numpr.find(qn("w:ilvl")), "val")
+            if nid is not None and nid.lstrip("-").isdigit():
+                num_id = int(nid)
+            if lvl is not None and lvl.isdigit():
+                ilvl = int(lvl)
+        return num_id, ilvl
+
     # --- слои -----------------------------------------------------------------------------
     def _table_layer(self, table: TableContext) -> tuple[Layer, Layer]:
         key = ("t", table.style_id, table.conditions())
