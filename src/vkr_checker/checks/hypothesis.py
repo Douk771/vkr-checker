@@ -106,8 +106,7 @@ class Hyp01HypothesisConsistency:
             m
             for m in ctx.facts.hypothesis_mentions
             if m.section_kind in ("CHAPTER", "CHAPTER_CONCLUSIONS")
-            and m.chapter is not None
-            and m.chapter >= 2
+            and (m.chapter is None or m.chapter >= 2)
         ]
 
     def _missing_in_chapter2(self, ctx: CheckContext):

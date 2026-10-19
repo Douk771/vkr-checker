@@ -19,26 +19,40 @@ _HYP_HEAD = re.compile(
 # Статус гипотезы распознаётся по оборотам, которые сообщают итог проверки:
 # прошедшее время и краткие причастия («подтвердилась», «подтверждена»),
 # «удалось подтвердить», «получила/нашла подтверждение», «свидетельствуют о
-# подтверждении», «опровергнута». Цель и будущее время («для подтверждения»,
-# «подтвердить», «подтвердится») статусом не считаются.
-_W = r"(?:(?!не\s)[\w-]+\s+)"  # слово-вставка, но не частица «не»
+# подтверждении», «опровергнута». Цель, будущее время и модальность («для
+# подтверждения», «подтвердить», «подтвердится», «будет/может быть
+# подтверждена», «опровергнуть») статусом не считаются. Предложения о нулевой
+# и альтернативной гипотезе (H0/H1) пропускаются: «H0 отклонена» означает
+# обратное для рабочей гипотезы.
+_W = r"(?:(?!(?:не|для)\s)[\w-]+\s+)"  # слово-вставка, но не «не» и не «для»
 _NEG_BEFORE = re.compile(r"(?<!\w)не\s+(?:был[аио]?\s+)?$", re.IGNORECASE)
+_MODAL_BEFORE = re.compile(
+    r"(?<!\w)(?:будет|будут|может|могут|могла|могли|мог|должна|должны|должно|должен)"
+    r"\s+(?:\w+\s+)?(?:быть\s+)?$",
+    re.IGNORECASE,
+)
+_NULL_HYP = re.compile(
+    r"(?<!\w)(?:нулев\w*|альтернативн\w*)\s+гипотез|(?<!\w)H\s?[01₀₁](?!\w)", re.IGNORECASE
+)
+_PARTICIPLE = re.compile(
+    r"(?<!\w)(?:подтвердил\w*|подтвержд(?:ена|ено|ены|ен|ён|ается|аются|ал\w*))(?!\w)",
+    re.IGNORECASE,
+)
 _STATUS_HITS: tuple[re.Pattern[str], ...] = (
-    re.compile(
-        r"(?<!\w)(?:подтвердил\w*|подтвержд(?:ена|ено|ены|ен|ён|ается|аются|ал\w*))(?!\w)",
-        re.IGNORECASE,
-    ),
+    _PARTICIPLE,
     re.compile(rf"(?<!\w)(?P<neg>не\s+)?удалось\s+{_W}{{0,2}}подтвердить(?!\w)", re.IGNORECASE),
     re.compile(rf"(?<!\w)подтвердить\s+{_W}{{0,2}}(?P<neg>не\s+)?удалось(?!\w)", re.IGNORECASE),
     re.compile(
-        rf"(?<!\w)(?P<neg>не\s+)?(?:получил\w*|нашл\w*|наш[её]л)\s+{_W}{{0,2}}подтвержден\w*",
+        rf"(?<!\w)(?P<neg>не\s+)?(?:получил\w*|нашл\w*|наш[её]л)\s+{_W}{{0,2}}подтверждени[еяю]",
         re.IGNORECASE,
     ),
     re.compile(rf"(?<!\w)свидетельству\w*\s+{_W}{{0,2}}о\s+подтверждении", re.IGNORECASE),
 )
-_REFUTED = re.compile(r"(?<!\w)опроверг\w*", re.IGNORECASE)
+# Только итоговые формы: «опровергнута», «опровергли»; «опровергнуть» — цель.
+_REFUTED = re.compile(r"(?<!\w)(?:опровергнут[аоы]?|опроверг(?:ла|ли|ло)?)(?!\w)", re.IGNORECASE)
 _PARTIAL = re.compile(
-    r"(?<!\w)(?:частичн\w*|не\s+полностью|не\s+в\s+полной\s+мере|не\s+вполне)(?!\w)",
+    r"(?<!\w)(?<!даже\s)(?:частичн\w*|не\s+(?:был[аио]?\s+)?(?:полностью|в\s+полной\s+мере|вполне)"
+    r"|не\s+(?:во|для)\s+всех|лишь\s+(?:для|в)\s+част\w*)(?!\w)",
     re.IGNORECASE,
 )
 _MOSTLY = re.compile(
@@ -71,13 +85,24 @@ class HypothesisMention:
 
 def status_of(text: str) -> str | None:
     """Статус гипотезы в одном предложении или None, если итог не сообщается."""
-    negated = bool(_REFUTED.search(text))
-    found = negated
+    if _NULL_HYP.search(text):
+        return None
+    found = negated = False
+    for m in _REFUTED.finditer(text):
+        before = text[: m.start()]
+        if _MODAL_BEFORE.search(before):
+            continue
+        if _NEG_BEFORE.search(before):
+            continue  # «не была опровергнута» — осторожная формулировка, не итог
+        found = negated = True
     for pattern in _STATUS_HITS:
         for m in pattern.finditer(text):
+            before = text[: m.start()]
+            if pattern is _PARTICIPLE and _MODAL_BEFORE.search(before):
+                continue
             found = True
             if m.groupdict().get("neg") or (
-                "neg" not in pattern.groupindex and _NEG_BEFORE.search(text[: m.start()])
+                "neg" not in pattern.groupindex and _NEG_BEFORE.search(before)
             ):
                 negated = True
     if not found:
