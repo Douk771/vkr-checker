@@ -58,9 +58,7 @@ class LoginRateLimiter:
 
 
 class Authenticator:
-    def __init__(
-        self, settings: Settings, clock: Callable[[], float] = time.time
-    ) -> None:
+    def __init__(self, settings: Settings, clock: Callable[[], float] = time.time) -> None:
         self.settings = settings
         self._clock = clock
         self._password = settings.password or ""

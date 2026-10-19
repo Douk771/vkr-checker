@@ -8,13 +8,22 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar
+from urllib.parse import quote
 
 from anyio import to_thread
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
+from pydantic import ValidationError
 
 from vkr_checker import __version__
 from vkr_checker.docx.package import DocxError
-from vkr_checker.report.schema import CheckReport, CompareReport, ErrorResponse, Health
+from vkr_checker.matrix.xlsx import build_matrix_xlsx, export_filename
+from vkr_checker.report.schema import (
+    CheckReport,
+    CompareReport,
+    ErrorResponse,
+    Health,
+    MatrixExportRequest,
+)
 
 from .auth import require_auth
 from .errors import ApiError
@@ -133,3 +142,52 @@ async def compare_versions(request: Request) -> Any:
                 files["new"],
                 timeout_s=s.compare_timeout_s,
             )
+
+
+XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@router.post(
+    "/export/matrix.xlsx",
+    operation_id="exportMatrixXlsx",
+    tags=["export"],
+    responses={
+        200: {"content": {XLSX_MEDIA_TYPE: {"schema": {"type": "string", "format": "binary"}}}},
+        401: _ERR,
+        413: _ERR,
+        422: _ERR,
+        500: _ERR,
+    },
+    response_class=Response,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {"schema": {"$ref": "#/components/schemas/MatrixExportRequest"}}
+            },
+        }
+    },
+    dependencies=[Depends(require_auth)],
+)
+async def export_matrix_xlsx(request: Request) -> Response:
+    try:
+        payload = MatrixExportRequest.model_validate(await request.json())
+    except (ValueError, ValidationError):
+        raise ApiError("validation_error", field="matrix") from None
+    try:
+        data = await to_thread.run_sync(
+            build_matrix_xlsx,
+            payload.matrix,
+            payload.file_name,
+            payload.service_version,
+            payload.checked_at,
+        )
+    except Exception as exc:
+        log.error("сбой выгрузки матрицы type=%s", type(exc).__name__)
+        raise ApiError("internal_error") from exc
+    name = export_filename(payload.file_name)
+    return Response(
+        content=data,
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
+    )
