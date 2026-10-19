@@ -106,3 +106,33 @@ def test_report_is_deterministic_apart_from_time(pipeline, tmp_path):
     f = make_docx(tmp_path / "a.docx")
     a, b = pipeline.check(f), pipeline.check(f)
     assert a.model_dump(exclude={"checked_at"}) == b.model_dump(exclude={"checked_at"})
+
+
+def test_reader_failure_waits_for_layout_before_temp_removal(pipeline, tmp_path, monkeypatch):
+    """soffice ещё пишет в work, когда падает разбор: каталог удаляется только после ожидания."""
+    import threading
+    import time
+
+    state = {"finished_at": None, "removed_before_finish": False}
+
+    class SlowRunner(FakeRunner):
+        def convert_to_pdf(self, docx, workdir):
+            started.set()
+            time.sleep(0.3)
+            state["removed_before_finish"] = not workdir.exists()
+            state["finished_at"] = time.monotonic()
+            raise LayoutError("поздно")
+
+    started = threading.Event()
+
+    def bad_reader(*a, **k):
+        started.wait(2)
+        raise RuntimeError("сбой разбора")
+
+    monkeypatch.setattr("vkr_checker.pipeline.read_document", bad_reader)
+    pipeline._runner = SlowRunner()
+    with pytest.raises(RuntimeError):
+        pipeline.check(make_docx(tmp_path / "a.docx"))
+    assert state["finished_at"] is not None
+    assert state["removed_before_finish"] is False
+    assert list(pipeline.scratch.iterdir()) == []

@@ -30,24 +30,38 @@ class SlotPool:
     def free(self) -> int:
         return self._free
 
-    @asynccontextmanager
-    async def acquire(self, n: int = 1) -> AsyncIterator[None]:
+    async def take(self, n: int = 1) -> None:
+        """Занимает n слотов (ожидание до wait_s, иначе server_busy). Вернуть через give()."""
         if n > self.capacity:
             raise ValueError("запрошено больше слотов, чем есть в пуле")
         cond = self._condition()
+        taken = False
 
         async def _wait() -> None:
+            nonlocal taken
             async with cond:
                 await cond.wait_for(lambda: self._free >= n)
                 self._free -= n
+                taken = True
 
         try:
             await asyncio.wait_for(_wait(), timeout=self.wait_s)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, asyncio.CancelledError) as exc:
+            if taken:  # py3.10: wait_for мог потерять уже занятый слот
+                await self.give(n)
+            if isinstance(exc, asyncio.CancelledError):
+                raise
             raise ApiError("server_busy", retry_after=RETRY_AFTER_S) from None
+
+    async def give(self, n: int = 1) -> None:
+        async with self._condition():
+            self._free += n
+            self._condition().notify_all()
+
+    @asynccontextmanager
+    async def acquire(self, n: int = 1) -> AsyncIterator[None]:
+        await self.take(n)
         try:
             yield
         finally:
-            async with cond:
-                self._free += n
-                cond.notify_all()
+            await self.give(n)

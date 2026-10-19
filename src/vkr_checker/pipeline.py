@@ -154,27 +154,33 @@ class CheckPipeline:
                     pkg = DocxPackage.open(file.path, self._limits)
                 except DocxError as exc:
                     raise InputFileError(file.field, exc.code, exc.message) from exc
-                with pkg:
-                    if self._runner is not None:
-                        future = executor.submit(self._runner.convert_to_pdf, file.path, Path(work))
-                    sha = sha256_of(file.path)
-                    try:
-                        doc = analyze_structure(read_document(pkg, file.name, sha), self._th)
-                    except DocxError as exc:
-                        raise InputFileError(file.field, exc.code, exc.message) from exc
-                parsed = time.monotonic()
-                outcome = self._join_layout(doc, future)
-                future = None  # результат учтён; PDF удалится вместе с каталогом
-                doc = with_layout(doc, outcome)
-                laid_out = time.monotonic()
-                report, ctx = self._build_report(doc, outcome, file, sha)
+                try:
+                    with pkg:
+                        if self._runner is not None:
+                            future = executor.submit(
+                                self._runner.convert_to_pdf, file.path, Path(work)
+                            )
+                        sha = sha256_of(file.path)
+                        try:
+                            doc = analyze_structure(read_document(pkg, file.name, sha), self._th)
+                        except DocxError as exc:
+                            raise InputFileError(file.field, exc.code, exc.message) from exc
+                    parsed = time.monotonic()
+                    outcome = self._join_layout(doc, future)
+                    future = None  # результат учтён; PDF удалится вместе с каталогом
+                    doc = with_layout(doc, outcome)
+                    laid_out = time.monotonic()
+                    report, ctx = self._build_report(doc, outcome, file, sha)
+                finally:
+                    # ждём soffice до выхода из TemporaryDirectory: подпроцесс пишет в work
+                    if future is not None:
+                        self._drain(future)
+                        future = None
         finally:
-            if future is not None:
-                self._drain(future)
             executor.shutdown(wait=True)
         log.info(
-            "check name=%.40s size=%d parse=%.2fs layout_wait=%.2fs checks=%.2fs layout=%s",
-            file.name, file.size, parsed - started, laid_out - parsed,
+            "check size=%d parse=%.2fs layout_wait=%.2fs checks=%.2fs layout=%s",
+            file.size, parsed - started, laid_out - parsed,
             time.monotonic() - laid_out, report.layout.status,
         )  # fmt: skip
         return Analysis(doc, report, ctx)

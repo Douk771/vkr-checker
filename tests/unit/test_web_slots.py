@@ -78,3 +78,16 @@ def test_request_larger_than_pool_is_programming_error():
 
     with pytest.raises(ValueError):
         run(scenario())
+
+
+def test_take_and_give_roundtrip():
+    import asyncio
+
+    async def run():
+        pool = SlotPool(2)
+        await pool.take(2)
+        assert pool.free == 0
+        await pool.give(2)
+        assert pool.free == 2
+
+    asyncio.run(run())
