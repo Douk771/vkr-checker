@@ -134,7 +134,7 @@ class Hyp01HypothesisConsistency:
             return []
         in_chapter = list(dict.fromkeys(m.status for m in chapter))
         in_conclusion = {m.status for m in conclusion}
-        if set(in_chapter) & in_conclusion:
+        if set(in_chapter) & in_conclusion or _compatible(set(in_chapter), in_conclusion):
             return []
         m = conclusion[0]
         ch_titles = ", ".join(f"«{STATUS_TITLES[x]}»" for x in in_chapter)
@@ -154,3 +154,14 @@ class Hyp01HypothesisConsistency:
                 hint="Статус гипотезы должен совпадать в главе 2 и в заключении.",
             )  # fmt: skip
         ]
+
+
+_MIXED = {"confirmed", "not_confirmed"}
+
+
+def _compatible(chapter: set[str], conclusion: set[str]) -> bool:
+    """«Частично» в одном месте согласуется со смесью «подтвердилась/не подтвердилась»
+    по частям гипотезы в другом (статусы сравниваются без привязки к частям)."""
+    return ("partially_confirmed" in conclusion and _MIXED <= chapter) or (
+        "partially_confirmed" in chapter and _MIXED <= conclusion
+    )

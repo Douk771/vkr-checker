@@ -172,7 +172,7 @@ def test_hyp01_noun_confirmation_is_not_a_status():
 
 def test_hyp01_several_statuses_in_chapter2_all_reported():
     body = ["Гипотеза 1 подтвердилась.", "Гипотеза 2 не подтвердилась."]
-    items = _hyp_items(body, ["Итоги."], ["Гипотеза частично подтвердилась."])
+    items = _hyp_items(body, ["Итоги."], ["Гипотеза в основном подтвердилась."])
     res = run(Hyp01HypothesisConsistency(), items)
     f = res.findings[0]
     assert f.values["statuses_chapter2"] == ["confirmed", "not_confirmed"]
@@ -189,3 +189,10 @@ def test_met02_short_function_words_in_name_are_ignored():
     sub = ["Использовалась методика «Опросник для диагностики стресса» Иванова А.А."]
     ch1 = ["Опросник диагностики стресса создан Ивановым А.А."]
     assert not run(Met02InstrumentsInTheory(), frame(["Цель."], ch1=ch1, sub21=sub)).findings
+
+
+def test_hyp01_partially_is_compatible_with_mixed_chapter2():
+    body = ["Гипотеза 1 подтвердилась.", "Гипотеза 2 не подтвердилась."]
+    items = _hyp_items(body, ["Итоги."], ["Гипотеза частично подтвердилась."])
+    res = run(Hyp01HypothesisConsistency(), items)
+    assert "HYP-01|status_mismatch" not in [f.fingerprint for f in res.findings]

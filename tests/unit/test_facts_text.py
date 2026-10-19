@@ -190,3 +190,18 @@ def test_no_section_2_1_means_no_instruments():
 def test_facts_are_cached():
     f = thesis(intro=["Задачи: изучить; выявить."])
     assert f.tasks is f.tasks and f.quantities is f.quantities
+
+
+def test_hypothesis_status_from_next_sentence_only_when_missing():
+    f = thesis(
+        intro=["Гипотеза: связь есть."],
+        ch2=[
+            "Гипотеза 1 о связи тревожности и дохода. Она подтвердилась.",
+            "Гипотеза 2 о различиях групп. Гипотеза 3 не подтвердилась.",
+            "Гипотеза 4 подтвердилась. Это не подтвердилось для группы Б.",
+        ],
+    )
+    got = [m.status for m in f.hypothesis_mentions]
+    # 1: статус из следующего предложения; 2: следующее — о другой гипотезе, не берём;
+    # 3: свой статус; 4: свой статус не перетирается следующим предложением.
+    assert got == ["confirmed", None, "not_confirmed", "confirmed"]

@@ -25,17 +25,20 @@ _HYP_HEAD = re.compile(
 # и альтернативной гипотезе (H0/H1) пропускаются: «H0 отклонена» означает
 # обратное для рабочей гипотезы.
 _W = r"(?:(?!(?:не|для)\s)[\w-]+\s+)"  # слово-вставка, но не «не» и не «для»
-_NEG_BEFORE = re.compile(r"(?<!\w)не\s+(?:был[аио]?\s+)?$", re.IGNORECASE)
+# «не (была) [одно наречие] подтверждена»: «не была статистически подтверждена».
+_NEG_BEFORE = re.compile(r"(?<!\w)не\s+(?:был[аио]?\s+)?(?:[\w-]+\s+)?$", re.IGNORECASE)
 _MODAL_BEFORE = re.compile(
     r"(?<!\w)(?:будет|будут|может|могут|могла|могли|мог|должна|должны|должно|должен)"
     r"\s+(?:\w+\s+)?(?:быть\s+)?$",
     re.IGNORECASE,
 )
+# H1, H2… студенты используют и как номера рабочих гипотез, поэтому по метке
+# пропускаем только H0/Н0 (латиница и кириллица).
 _NULL_HYP = re.compile(
-    r"(?<!\w)(?:нулев\w*|альтернативн\w*)\s+гипотез|(?<!\w)H\s?[01₀₁](?!\w)", re.IGNORECASE
+    r"(?<!\w)(?:нулев\w*|альтернативн\w*)\s+гипотез|(?<!\w)[HН]\s?[0₀](?!\w)", re.IGNORECASE
 )
 _PARTICIPLE = re.compile(
-    r"(?<!\w)(?:подтвердил\w*|подтвержд(?:ена|ено|ены|ен|ён|ается|аются|ал\w*))(?!\w)",
+    r"(?<!\w)(?:подтвердил\w*|подтвержд(?:ена|ено|ены|ен|ён|ается|аются|ает|ают|ал\w*))(?!\w)",
     re.IGNORECASE,
 )
 _STATUS_HITS: tuple[re.Pattern[str], ...] = (
@@ -50,15 +53,27 @@ _STATUS_HITS: tuple[re.Pattern[str], ...] = (
 )
 # Только итоговые формы: «опровергнута», «опровергли»; «опровергнуть» — цель.
 _REFUTED = re.compile(r"(?<!\w)(?:опровергнут[аоы]?|опроверг(?:ла|ли|ло)?)(?!\w)", re.IGNORECASE)
+# Модификаторы степени ищутся в той же клаузе, что и форма статуса
+# («подтвердилась, хотя выборка не полностью репрезентативна» — не «частично»).
 _PARTIAL = re.compile(
-    r"(?<!\w)(?<!даже\s)(?:частичн\w*|не\s+(?:был[аио]?\s+)?(?:полностью|в\s+полной\s+мере|вполне)"
-    r"|не\s+(?:во|для)\s+всех|лишь\s+(?:для|в)\s+част\w*)(?!\w)",
+    r"(?<!\w)(?<!даже\s)(?:частично|частичн\w+\s+подтвержд\w*"
+    r"|не\s+(?:был[аио]?\s+)?(?:полностью|в\s+полной\s+мере|вполне|до\s+конца)"
+    r"|не\s+(?:во|для)\s+всех|(?:лишь|только)\s+(?:для|в|у|на|среди)\s+\w+)(?!\w)",
     re.IGNORECASE,
 )
 _MOSTLY = re.compile(
-    r"(?<!\w)(?:в\s+основном|в\s+значительной\s+(?:степени|мере)|преимущественно)(?!\w)",
+    r"(?<!\w)(?:в\s+основном|в\s+значительной\s+(?:степени|мере)|в\s+большей\s+части)(?!\w)",
     re.IGNORECASE,
 )
+_CLAUSE_SEP = re.compile(r"[,;:()—–]|\s(?:хотя|но|однако|а)\s", re.IGNORECASE)
+
+
+def _clause(text: str, start: int, end: int) -> str:
+    left = max((m.end() for m in _CLAUSE_SEP.finditer(text, 0, start)), default=0)
+    right = next((m.start() for m in _CLAUSE_SEP.finditer(text, end)), len(text))
+    return text[left:right]
+
+
 STATUS_TITLES = {
     "not_confirmed": "не подтверждена",
     "partially_confirmed": "частично подтверждена",
@@ -88,6 +103,7 @@ def status_of(text: str) -> str | None:
     if _NULL_HYP.search(text):
         return None
     found = negated = False
+    clauses: list[str] = []
     for m in _REFUTED.finditer(text):
         before = text[: m.start()]
         if _MODAL_BEFORE.search(before):
@@ -95,23 +111,25 @@ def status_of(text: str) -> str | None:
         if _NEG_BEFORE.search(before):
             continue  # «не была опровергнута» — осторожная формулировка, не итог
         found = negated = True
+        clauses.append(_clause(text, m.start(), m.end()))
     for pattern in _STATUS_HITS:
         for m in pattern.finditer(text):
             before = text[: m.start()]
             if pattern is _PARTICIPLE and _MODAL_BEFORE.search(before):
                 continue
             found = True
+            clauses.append(_clause(text, m.start(), m.end()))
             if m.groupdict().get("neg") or (
                 "neg" not in pattern.groupindex and _NEG_BEFORE.search(before)
             ):
                 negated = True
     if not found:
         return None
-    if _PARTIAL.search(text):
+    if any(_PARTIAL.search(c) for c in clauses):
         return "partially_confirmed"
     if negated:
         return "not_confirmed"
-    if _MOSTLY.search(text):
+    if any(_MOSTLY.search(c) for c in clauses):
         return "mostly_confirmed"
     return "confirmed"
 
