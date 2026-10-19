@@ -85,7 +85,10 @@ HYP = "Гипотеза: высокая учебная мотивация свя
 def test_hyp01_same_wording_passes_and_status_mentions_are_ignored():
     items = frame(
         [HYP],
-        results=["Высокая учебная мотивация связана с успешной социальной адаптацией студентов."],
+        results=[
+            "Высокая учебная мотивация связана с успешной социальной адаптацией студентов.",
+            "Гипотеза подтвердилась.",
+        ],
     )
     items[-1] = "Гипотеза подтвердилась."
     assert not run(Hyp01HypothesisConsistency(), items).findings
@@ -97,7 +100,7 @@ def test_hyp01_diverging_wording_gets_diff_and_status():
         results=["Гипотеза о влиянии тревожности педагогов на выгорание не подтвердилась."],
     )
     res = run(Hyp01HypothesisConsistency(), items)
-    texts = [f for f in res.findings if f.fingerprint != "HYP-01|conclusion_missing"]
+    texts = [f for f in res.findings if f.fingerprint.count("|") == 2]
     assert len(texts) == 1
     assert texts[0].values["status"] == "not_confirmed"
     assert "тревожность" in texts[0].values["only_in_text"]
@@ -106,4 +109,31 @@ def test_hyp01_diverging_wording_gets_diff_and_status():
 
 def test_hyp01_conclusion_without_status():
     res = run(Hyp01HypothesisConsistency(), frame([HYP]))
-    assert [f.fingerprint for f in res.findings] == ["HYP-01|conclusion_missing"]
+    assert {f.fingerprint for f in res.findings} == {
+        "HYP-01|chapter2_missing",
+        "HYP-01|conclusion_missing",
+    }
+
+
+def test_hyp01_status_differs_between_chapter2_and_conclusion():
+    items = frame([HYP], results=["Гипотеза частично подтвердилась."])
+    items[-1] = "Гипотеза подтвердилась."
+    res = run(Hyp01HypothesisConsistency(), items)
+    assert [f.fingerprint for f in res.findings] == ["HYP-01|status_mismatch"]
+    assert res.findings[0].values["status_chapter2"] == "partially_confirmed"
+
+
+def test_met02_name_words_spread_over_chapter_are_not_a_match():
+    sub = ["Использовалась методика «Шкала учебной мотивации» (ШУМ) Иванова А.А."]
+    ch1 = ["Учебная мотивация студентов изучалась давно. Шкалы бывают разные."]
+    res = run(Met02InstrumentsInTheory(), frame(["Цель."], ch1=ch1, sub21=sub))
+    assert len(res.findings) == 1
+
+
+def test_met02_authors_differ_between_chapters():
+    sub = ["Использовалась методика «Шкала учебной мотивации» (ШУМ) Иванова А.А."]
+    ch1 = ["Шкала учебной мотивации создана Петровым Б.Б."]
+    res = run(Met02InstrumentsInTheory(), frame(["Цель."], ch1=ch1, sub21=sub))
+    assert [f.fingerprint for f in res.findings] == ["MET-02|authors|шкала учебной мотивации"]
+    ch1_same = ["Шкала учебной мотивации создана Ивановым А.А."]
+    assert not run(Met02InstrumentsInTheory(), frame(["Цель."], ch1=ch1_same, sub21=sub)).findings

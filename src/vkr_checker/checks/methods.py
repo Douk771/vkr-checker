@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from rapidfuzz import fuzz
 
 from vkr_checker.checks.base import CheckContext, Need, Source, new_finding, result_of
 from vkr_checker.checks.engine import need_section
+from vkr_checker.checks.facts.authors import authors_in
 from vkr_checker.checks.facts.common import paragraphs_in
 from vkr_checker.checks.registry import register
 from vkr_checker.checks.rulehelpers import in_section_tree, mention_location, section_id_of
 from vkr_checker.nlp.lexicons.methods import METHODS
 from vkr_checker.nlp.normalize import normalize_text
+from vkr_checker.nlp.sentences import split_sentences
 
 SRC_ANALYSIS = Source("CH", "Анализ данных")
 SRC_THEORY = Source("CH", "Теория и методики")
@@ -112,34 +115,99 @@ class Met02InstrumentsInTheory:
 
     def run(self, ctx: CheckContext):
         ch1 = need_section(ctx.doc, Need.CH1)
-        texts = _chapter_text(ctx, ch1)
+        sentences = _chapter_sentences(ctx, ch1)
         authors_ch1 = {a.key for a in ctx.facts.authors if a.chapter == 1}
         out = []
         for ins in ctx.facts.instruments:
-            if self._found(ins, texts, authors_ch1, ctx.th.INSTR_MATCH):
+            matched = [s for s in sentences if self._mentions(ins, s.norm, ctx.th.INSTR_MATCH)]
+            if not matched and not any(key in authors_ch1 for _s, key in ins.authors):
+                out.append(
+                    new_finding(
+                        self,
+                        f"Методика «{ins.name}» из главы 2 не обсуждается в главе 1.",
+                        fingerprint=f"MET-02|{normalize_text(ins.name)}",
+                        method="fuzzy",
+                        locations=[mention_location(ctx, ins.loc)],
+                        values={"instrument": ins.name, "abbr": ins.abbr},
+                        hint="Опишите методику и её авторов в теоретической главе.",
+                    )  # fmt: skip
+                )
                 continue
-            out.append(
-                new_finding(
-                    self,
-                    f"Методика «{ins.name}» из главы 2 не обсуждается в главе 1.",
-                    fingerprint=f"MET-02|{normalize_text(ins.name)}",
-                    method="fuzzy",
-                    locations=[mention_location(ctx, ins.loc)],
-                    values={"instrument": ins.name, "abbr": ins.abbr},
-                    hint="Опишите методику и её авторов в теоретической главе.",
-                )  # fmt: skip
-            )
+            out.extend(self._authors_mismatch(ctx, ins, matched))
         return result_of(self, out)
 
+    def _authors_mismatch(self, ctx: CheckContext, ins, matched):
+        """Авторы методики в главе 2 и в предложениях главы 1 о ней не пересекаются."""
+        keys_ch2 = {key for _s, key in ins.authors}
+        by_key: dict[str, str] = {}
+        for s in matched:
+            for surname, key in authors_in(s.raw):
+                by_key.setdefault(key, surname)
+        if not keys_ch2 or not by_key or keys_ch2 & by_key.keys():
+            return []
+        return [
+            new_finding(
+                self,
+                f"Авторы методики «{ins.name}» в главе 2 ({', '.join(n for n, _k in ins.authors)}) "
+                f"не совпадают с авторами в главе 1 ({', '.join(by_key.values())}).",
+                fingerprint=f"MET-02|authors|{normalize_text(ins.name)}",
+                method="morph",
+                locations=[mention_location(ctx, ins.loc)],
+                values={
+                    "instrument": ins.name,
+                    "authors_ch2": [n for n, _k in ins.authors],
+                    "authors_ch1": list(by_key.values()),
+                    "adaptation": ins.adaptation,
+                },
+                hint="Указывайте одних и тех же авторов и адаптацию методики в главах 1 и 2.",
+            )  # fmt: skip
+        ]
+
     @staticmethod
-    def _found(ins, texts, authors_ch1: set[str], min_ratio: float) -> bool:
+    def _mentions(ins, sentence: str, min_ratio: float) -> bool:
+        """Предложение упоминает методику: название (все значимые слова), либо аббревиатура."""
         name = normalize_text(ins.name)
-        for _idx, text in texts:
-            if name in text or fuzz.partial_ratio(name, text) >= min_ratio:
-                return True
-            if ins.abbr and re.search(rf"(?<!\w){re.escape(ins.abbr)}(?!\w)", text, re.IGNORECASE):
-                return True
-        return any(key in authors_ch1 for _s, key in ins.authors)
+        if name in sentence:
+            return True
+        if ins.abbr and re.search(rf"(?<!\w){re.escape(ins.abbr)}(?!\w)", sentence, re.IGNORECASE):
+            return True
+        return _covers_words(name, sentence, min_ratio)
+
+
+@dataclass(frozen=True, slots=True)
+class _Sentence:
+    raw: str
+    norm: str
+
+
+_WORD = re.compile(r"\w+")
+MIN_NAME_WORD = 3
+
+
+def _chapter_sentences(ctx: CheckContext, section) -> list[_Sentence]:
+    return [
+        _Sentence(s.text, normalize_text(s.text))
+        for p in paragraphs_in(ctx.doc, section)
+        if p.text
+        for s in split_sentences(p.text)
+    ]
+
+
+def _covers_words(name: str, sentence: str, min_ratio: float) -> bool:
+    """Каждое значимое слово названия есть в предложении (с учётом падежа и опечаток).
+
+    Нечёткое сравнение идёт по словам, а не по подстроке длинного абзаца: иначе общая
+    лексика темы («учебная мотивация») засчитывала бы методику найденной (BUG-Q7).
+    """
+    words = [w for w in _WORD.findall(name) if len(w) >= MIN_NAME_WORD]
+    if not words:
+        return False
+    text_words = _WORD.findall(sentence)
+    for w in words:
+        stem = w[: max(MIN_NAME_WORD, len(w) - 2)]
+        if not any(t.startswith(stem) or fuzz.ratio(w, t) >= min_ratio for t in text_words):
+            return False
+    return True
 
 
 _QUOTED = re.compile(r"[«\"“]([^»\"”]{4,80})[»\"”]")
