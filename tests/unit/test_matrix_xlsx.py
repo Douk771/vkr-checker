@@ -51,6 +51,15 @@ def test_control_chars_are_stripped():
 
 
 def test_export_filename_sanitized():
-    assert export_filename("../../etc/passwd.docx") == "etc_passwd_matrix.xlsx"
-    assert export_filename("Иванов ВКР.docx") == "Иванов ВКР_matrix.xlsx"
-    assert export_filename("...docx") == "vkr_matrix.xlsx"
+    assert export_filename("../../etc/passwd.docx") == "etc_passwd_матрица.xlsx"
+    assert export_filename("Иванов ВКР.docx") == "Иванов ВКР_матрица.xlsx"
+    assert export_filename("...docx") == "vkr_матрица.xlsx"
+
+
+def test_leading_equals_is_text_not_formula():
+    m = make_matrix()
+    m.rows[0].statement = "=1+1"
+    m.rows[0].label = "@x"
+    wb = load_workbook(BytesIO(build_matrix_xlsx(m, "f.docx")))
+    cell = wb["Матрица"].cell(2, 2)
+    assert cell.value == "=1+1" and cell.data_type == "s"

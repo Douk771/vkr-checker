@@ -7,6 +7,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from anyio import to_thread
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
@@ -61,7 +62,7 @@ async def receive_files(
             raise ApiError("bad_request", "В запросе лишние поля или файлы.")
         for field in fields:
             matches = [v for k, v in items if k == field]
-            result[field] = _save(matches[0], field, dest, max_bytes)
+            result[field] = await to_thread.run_sync(_save, matches[0], field, dest, max_bytes)
     finally:
         await form.close()
     return result

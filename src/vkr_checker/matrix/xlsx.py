@@ -147,12 +147,24 @@ def build_matrix_xlsx(
     if checked_at is not None:
         props.created = checked_at.replace(tzinfo=None)
     buf = BytesIO()
+    _force_text_cells(wb)
     wb.save(buf)
     return buf.getvalue()
 
 
+def _force_text_cells(wb: Workbook) -> None:
+    """Строки с ведущими = + - @ записываются как текст, а не формула (формульная инъекция)."""
+    for sheet in wb.worksheets:
+        for row in sheet.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str) and cell.data_type == "f":
+                    cell.data_type = "s"
+                elif isinstance(cell.value, str) and cell.value[:1] in ("=", "+", "-", "@"):
+                    cell.data_type = "s"
+
+
 def export_filename(file_name: str) -> str:
-    """Безопасное имя скачиваемого файла: <имя без расширения>_matrix.xlsx."""
+    """Безопасное имя скачиваемого файла: <имя без расширения>_матрица.xlsx."""
     stem = file_name.rsplit(".", 1)[0] if "." in file_name else file_name
     safe = "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in stem).strip(" _")
-    return f"{safe[:80] or 'vkr'}_matrix.xlsx"
+    return f"{safe[:80] or 'vkr'}_матрица.xlsx"

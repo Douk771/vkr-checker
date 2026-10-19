@@ -96,10 +96,10 @@ class TheoryIndex:
 
     def score(self, section: Section, keys: set[str]) -> float:
         tf, norm = self.tf[section.id], self.norm[section.id]
-        qnorm = math.sqrt(sum(self.idf.get(w, 1.0) ** 2 for w in keys))
+        qnorm = math.sqrt(sum(self.idf.get(w, 1.0) ** 2 for w in sorted(keys)))
         if not norm or not qnorm:
             return 0.0
-        dot = sum(tf[w] * self.idf[w] * self.idf[w] for w in keys if w in tf)
+        dot = sum(tf[w] * self.idf[w] * self.idf[w] for w in sorted(keys) if w in tf)
         return dot / (norm * qnorm)
 
     def find(self, keys: set[str]) -> MatrixCell:
