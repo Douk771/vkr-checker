@@ -1,0 +1,44 @@
+[project]
+name = "vkr-checker"
+version = "0.1.0"
+description = "Проверка ВКР (.docx) на соответствие требованиям"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+  "pydantic>=2.6",
+  "pydantic-settings>=2.2",
+  "python-multipart>=0.0.9",
+  "python-docx>=1.1",
+  "lxml>=5.0",
+  "pypdfium2>=4.30",
+  "rapidfuzz>=3.6",
+  "pymorphy3>=2.0",
+  "pymorphy3-dicts-ru>=2.4",
+  "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.4", "jsonschema>=4.20", "pyyaml>=6", "httpx>=0.27"]
+
+[project.scripts]
+vkr-checker = "vkr_checker.main:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vkr_checker"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

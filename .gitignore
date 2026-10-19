@@ -1,9 +1,17 @@
 # Файлы требований — локально, не в репозитории
 *.pdf
 рекомендации и чек лист.md
-# Загруженные работы
+local_corpus/
+# Загруженные работы и сгенерированные фикстуры
+/*.docx
 *.docx
 uploads/
+tests/fixtures/generated/
+.env
 .DS_Store
 __pycache__/
+*.pyc
 .venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
