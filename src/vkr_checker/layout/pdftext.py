@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import bisect
 import re
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -48,8 +49,16 @@ def normalize_page(raw: str) -> str:
     return normalize_key("\n".join(lines))
 
 
+_PDFIUM_LOCK = threading.Lock()  # PDFium не потокобезопасен: все обращения строго по одному
+
+
 def extract_pages(pdf_path: Path) -> PdfPages:
     """Читает PDF через pypdfium2; любой сбой -> LayoutError."""
+    with _PDFIUM_LOCK:
+        return _extract_pages_locked(pdf_path)
+
+
+def _extract_pages_locked(pdf_path: Path) -> PdfPages:
     try:
         import pypdfium2 as pdfium
 
