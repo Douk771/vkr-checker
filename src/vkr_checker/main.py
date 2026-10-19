@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import Settings, get_settings
 from .layout.soffice import SofficeInfo, probe_soffice
-from .web.auth import Authenticator
+from .web.auth import Authenticator, session_router
 from .web.errors import install_error_handlers
 from .web.middleware import BodyLimitMiddleware, RequestContextMiddleware
 from .web.routes import router
@@ -48,6 +48,7 @@ def create_app(settings: Settings | None = None, layout_info: SofficeInfo | None
 
     install_error_handlers(app)
     app.include_router(router)
+    app.include_router(session_router)
     app.add_middleware(BodyLimitMiddleware, limits=_body_limits(settings))
     app.add_middleware(RequestContextMiddleware)  # последним: он внешний и ставит X-Request-Id
     if FRONTEND_DIR.is_dir():

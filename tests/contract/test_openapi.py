@@ -21,7 +21,7 @@ SPEC = yaml.safe_load((ROOT / "api" / "openapi.yaml").read_text(encoding="utf-8"
 SCHEMAS = SPEC["components"]["schemas"]
 
 # Эндпоинты, которых ещё нет в коде: убирать из списка по мере реализации.
-PENDING_PATHS = {"/api/session": "B-04", "/api/export/matrix.xlsx": "B-51"}
+PENDING_PATHS = {"/api/export/matrix.xlsx": "B-51"}
 # Схемы openapi, которые в Python выражены алиасами Literal, а не классами.
 ALIAS_SCHEMAS = {"Level", "Outcome", "Method", "BlockId", "RuleId"}
 # Вспомогательные классы для inline-объектов openapi (в yaml у них нет имени).
