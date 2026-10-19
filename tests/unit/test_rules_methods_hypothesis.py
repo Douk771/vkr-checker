@@ -94,9 +94,7 @@ def test_hyp01_same_wording_passes_and_status_mentions_are_ignored():
 def test_hyp01_diverging_wording_gets_diff_and_status():
     items = frame(
         [HYP],
-        results=[
-            "Гипотеза о том, что тревожность определяет профессиональное выгорание, не подтвердилась."
-        ],
+        results=["Гипотеза о влиянии тревожности педагогов на выгорание не подтвердилась."],
     )
     res = run(Hyp01HypothesisConsistency(), items)
     texts = [f for f in res.findings if f.fingerprint != "HYP-01|conclusion_missing"]
