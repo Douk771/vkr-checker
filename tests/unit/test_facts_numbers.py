@@ -168,3 +168,24 @@ def test_caption_paragraph_is_not_a_reference():
     cap = replace(d.captions[0], paragraph_idx=2)
     d = replace(d, captions=(cap,))
     assert Facts(d).refs == []
+
+
+def test_gender_split_clause_does_not_qualify_total_n():
+    f = facts_for("Выборка: n = 120 студентов, из них 60% женщин и 40% мужчин.")
+    (n,) = by_kind(f, "sample_n")
+    assert n.value == "120" and n.qualifier == ""
+
+
+def test_qualifier_before_or_right_after_number_is_kept():
+    f = facts_for("Среди участников было n = 60 женщин.", "Из них n = 30 человек прошли отбор.")
+    assert [q.qualifier for q in by_kind(f, "sample_n")] == ["женщин", "из них"]
+
+
+def test_year_in_citation_is_not_group_size():
+    f = facts_for("В экспериментальной группе (Иванов, 2015) были изменения.")
+    assert not [q for q in f.quantities if q.kind.startswith("group_n:")]
+
+
+def test_figure_reference_forms():
+    f = facts_for("Показано на рисунке 2, см. рисунок 3 и рис. 4.")
+    assert sorted(r.target for r in f.refs if r.kind == "figure") == ["2", "3", "4"]

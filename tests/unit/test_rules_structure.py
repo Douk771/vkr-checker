@@ -252,3 +252,14 @@ def test_page01_same_error_in_many_sections_collapses():
 def test_page01_no_page_setup_is_not_run():
     res = run(Page01Margins(), clean_builder().build())
     assert res.outcome == "not_run" and res.findings[0].not_run
+
+
+def test_str05_reference_to_missing_appendix_is_reported_once():
+    b = clean_builder(appendix=False, concl_extra=" См. приложение Б и приложении Б.")
+    b.heading("Приложение А", kind="APPENDIX")
+    doc = b.build()
+    app = Appendix("Приложение А", "А", section_id=doc.sections[-1].id, starts_new_page=True)
+    doc = replace(doc, appendices=(app,))
+    assert [fp for fp in ids(run(Str05Appendices(), doc)) if "dangling" in fp] == [
+        "STR-05|dangling|Б"
+    ]

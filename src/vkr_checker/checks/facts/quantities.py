@@ -130,9 +130,8 @@ def _group_sizes(sentence, offset, mention, kind, in_table) -> list[Quantity]:
         loc = Mention(mention.paragraph_idx, span, mention.cell)
         q = TABLE_QUALIFIER if in_table else ""
         raw = sentence[g.start() : m.end()]
-        out.append(
-            Quantity(f"group_n:{label}", q, normalize_number(m.group(1) or m.group(2)), "чел", loc, kind, raw)
-        )
+        value = normalize_number(m.group(1) or m.group(2))
+        out.append(Quantity(f"group_n:{label}", q, value, "чел", loc, kind, raw))
     return out
 
 

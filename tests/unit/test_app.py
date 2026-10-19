@@ -1,5 +1,5 @@
-from vkr_checker.layout.soffice import SofficeInfo
 from vkr_checker.config import Settings
+from vkr_checker.layout.soffice import SofficeInfo
 from vkr_checker.main import create_app
 
 

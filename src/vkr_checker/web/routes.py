@@ -156,7 +156,12 @@ async def _run_job(
 async def check_document(request: Request) -> Any:
     s = request.app.state.settings
     return await _run_job(
-        request, ("file",), 1, s.check_timeout_s, request.app.state.pipeline.check, s.max_upload_bytes
+        request,
+        ("file",),
+        1,
+        s.check_timeout_s,
+        request.app.state.pipeline.check,
+        s.max_upload_bytes,
     )
 
 

@@ -93,7 +93,8 @@ _M = re.compile(rf"(?<![A-Za-zА-Яа-я])M\s*=\s*({NUM})")
 _SD = re.compile(rf"(?:\bSD\b|σ)\s*=\s*({NUM})|M\s*=\s*{NUM}\s*±\s*({NUM})")
 _RANGE = re.compile(
     rf"(?:диапазон\w*|размах\w*|варьир\w+)[^.;]{{0,40}}?(?:от\s*)?({NUM})\s*(?:до|[-–—])\s*({NUM})"
-    rf"|\bmin\s*=\s*({NUM})\s*[,;]?\s*\bmax\s*=\s*({NUM})",
+    rf"|\bmin\s*=\s*({NUM})\s*[,;]?\s*\bmax\s*=\s*({NUM})"
+    rf"|\bот\s+({NUM})\s+до\s+({NUM})",
     re.IGNORECASE,
 )
 _HEAD = {

@@ -254,7 +254,8 @@ class ThesisBuilder:
                 if conformant:
                     table.cell(r, c).vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
         if conformant:
-            _fix_table_width(table, [6.5] + [(16.5 - 6.5) / (len(rows[0]) - 1)] * (len(rows[0]) - 1))
+            n_other = len(rows[0]) - 1
+            _fix_table_width(table, [6.5] + [(16.5 - 6.5) / n_other] * n_other)
         self.para("", indent=False)
         return self
 

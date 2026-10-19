@@ -58,4 +58,5 @@ def test_compare_report_valid(pipe, fixture_path):
 def test_clean_fixture_has_no_violations(pipe, fixture_path):
     data = _dump(pipe.check(_upload(fixture_path("clean_70p"))))
     findings = [f for b in data["blocks"] for r in b["rule_results"] for f in r["findings"]]
-    assert not [f for f in findings if f["level"] in ("violation", "suspicion") and not f["not_run"]]
+    flagged = [f for f in findings if f["level"] in ("violation", "suspicion") and not f["not_run"]]
+    assert not flagged

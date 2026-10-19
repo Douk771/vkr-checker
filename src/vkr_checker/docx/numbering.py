@@ -180,7 +180,9 @@ class NumberingResolver:
     def _bounded(self, value: int, what: str) -> int:
         if 0 <= value <= MAX_WORD_NUMBER:
             return value
-        self._warn(f"нумерация: {what}={value} вне диапазона 0..{MAX_WORD_NUMBER}, значение ограничено")
+        self._warn(
+            f"нумерация: {what}={value} вне диапазона 0..{MAX_WORD_NUMBER}, значение ограничено"
+        )
         return _clamp_number(value)
 
     def _start_override(self, num_id: int, ilvl: int) -> int | None:

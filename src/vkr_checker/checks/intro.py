@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from vkr_checker.checks.base import CheckContext, Need, Source, new_finding, result_of
+from vkr_checker.checks.facts.common import section_kind_of
 from vkr_checker.checks.facts.intro import REQUIRED
 from vkr_checker.checks.registry import register
 
@@ -26,7 +28,14 @@ ELEMENT_TITLES: dict[str, str] = {
     "approbation": "апробация",
     "implementation": "внедрение",
 }
+_IMPLEMENTED = re.compile(r"\bвнедрен[ыаои]?\b|\bвнедрён\w*|\bвнедрил\w*", re.IGNORECASE)
 _ACT = re.compile(r"акт\w*\s+внедрени", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class _Hit:
+    paragraph_idx: int
+    span: tuple[int, int]
 
 
 @register
@@ -84,9 +93,18 @@ class Int01IntroElements:
 
     def _implementation(self, ctx: CheckContext):
         found = ctx.facts.intro_elements.get("implementation", [])
+        doc = ctx.doc
+        if not found:
+            # «результаты внедрены ...» внутри другого абзаца введения (например, значимость)
+            for para in doc.paragraphs:
+                if section_kind_of(doc, para.section_id) != "INTRO":
+                    continue
+                hit = _IMPLEMENTED.search(para.text)
+                if hit:
+                    found = [_Hit(para.idx, (hit.start(), hit.end()))]
+                    break
         if not found:
             return []
-        doc = ctx.doc
         has_act = any(_ACT.search(p.text) for p in doc.paragraphs) or any(
             _ACT.search(a.title) for a in doc.appendices
         )
