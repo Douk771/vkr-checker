@@ -42,22 +42,41 @@ RuleResult
 ## 2. Интерфейс правила и движок (`checks/base.py`, `checks/engine.py`)
 
 ```python
-class Need(StrEnum): INTRO, CH1, CH2, SUB_2_1, CONCLUSION, CH_CONCLUSIONS, TOC, BIBLIOGRAPHY, \
-                     APPENDICES, TABLES, LAYOUT, LAYOUT_OR_ESTIMATE
+class Need(StrEnum):
+    (
+        INTRO,
+        CH1,
+        CH2,
+        SUB_2_1,
+        CONCLUSION,
+        CH_CONCLUSIONS,
+        TOC,
+        BIBLIOGRAPHY,
+        APPENDICES,
+        TABLES,
+        LAYOUT,
+        LAYOUT_OR_ESTIMATE,
+    )
+
 
 class Rule(Protocol):
-    id: str; title: str; block: BlockId; source: Source
+    id: str
+    title: str
+    block: BlockId
+    source: Source
     default_level: Level
-    needs: frozenset[Need]          # без чего правило не работает → движок ставит not_run сам
-    priority: Literal["must","should","could"]
+    needs: frozenset[Need]  # без чего правило не работает → движок ставит not_run сам
+    priority: Literal["must", "should", "could"]
+
     def run(self, ctx: CheckContext) -> RuleResult: ...
+
 
 @dataclass
 class CheckContext:
     doc: Document
-    facts: Facts                    # ленивые кэшированные извлечения (§3), общие для правил, diff, матрицы
+    facts: Facts  # ленивые кэшированные извлечения (§3), общие для правил, diff, матрицы
     th: Thresholds
-    loc: LocationFactory            # обёртка над make_location (ARCHITECTURE.md §5)
+    loc: LocationFactory  # обёртка над make_location (ARCHITECTURE.md §5)
 ```
 - **Регистрация:** декоратор `@register` в модулях `checks/*.py`; `checks/registry.py` импортирует модули явно (без автосканирования, чтобы порядок был детерминированным). Порядок выполнения: по `rule_id` (каталог правил сортируется).
 - **Движок:** для каждого правила (1) проверяет `needs` по `doc.sections`/`doc.layout`; если чего-то нет → `RuleResult(outcome="not_run")` и одна находка `not_run=True, level=suspicion` с текстом «не найден <фрагмент>, проверка <ID> пропущена». (2) Вызывает `run` в `try/except`. При исключении итог `not_run`, причина «внутренняя ошибка разбора», трассировка уходит только в лог без значений переменных. Сервис из-за этого не падает (SPEC §5 «Надёжность»). (3) Применяет понижение уровня (§1). (4) Схлопывает однотипные находки (§8.2). (5) Сортирует находки по ключу `(block_order, rule_id, first_location.paragraph_idx or 0, table_idx, fingerprint)`.
