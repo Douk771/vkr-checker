@@ -15,7 +15,7 @@ _NUM = r"\d+(?:[.,]\d+)*|(?-i:[А-ЯA-Z])(?![A-Za-zА-Яа-яЁё])"
 _NUM_LIST = rf"(?P<n>{_NUM})(?P<rest>(?:\s*(?:[–—-]|,|;|и)\s*(?:{_NUM}))*)"
 _PREFIX = {
     "table": r"табл(?:иц\w*|\.)?",
-    "figure": r"рис(?:унк\w*|\.)?",
+    "figure": r"рис(?:ун\w*|\.)?",
     "appendix": r"приложени\w+",
 }
 _REF_PATTERNS = {

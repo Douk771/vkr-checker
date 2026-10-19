@@ -22,6 +22,7 @@ from .numbers import find_number_changes
 from .sections import SectionMatch, align_sections
 from .tables import diff_tables
 
+IDENTICAL_FILES_WARNING = "Файлы идентичны."
 CHANGED_ON_NEW = ("modified", "inserted", "moved_in")
 
 
@@ -31,7 +32,7 @@ def _section_diff(m: SectionMatch) -> SectionDiff:
     changed = any(p.status != "unchanged" for p in m.paragraphs)
     if m.old is None or m.new is None:
         status, basis = ("added" if m.old is None else "removed"), None
-    elif m.basis != "exact":
+    elif m.basis != "exact" and old_title != new_title:
         status, basis = "renamed", m.basis
     else:
         status, basis = ("modified" if changed else "unchanged"), None
@@ -87,11 +88,16 @@ def build_compare_report(
     checked_at: datetime,
     th: Thresholds = DEFAULT_THRESHOLDS,
 ) -> CompareReport:
+    new_report = new.report
+    if old.report.file.sha256 == new_report.file.sha256:
+        new_report = new_report.model_copy(
+            update={"warnings": [*new_report.warnings, IDENTICAL_FILES_WARNING]}
+        )
     return CompareReport(
         schema_version=SCHEMA_VERSION,  # type: ignore[arg-type]
         service_version=service_version,
         checked_at=checked_at,
         old=CompareOld(file=old.report.file, layout=old.report.layout, summary=old.report.summary),
-        new=new.report,
+        new=new_report,
         diff=build_diff(old, new, th),
     )

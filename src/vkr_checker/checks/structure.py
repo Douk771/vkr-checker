@@ -10,6 +10,7 @@ from rapidfuzz import fuzz
 from vkr_checker.checks.base import CheckContext, Need, Source, new_finding, result_of
 from vkr_checker.checks.facts.common import paragraphs_in, section_kind_of
 from vkr_checker.checks.registry import register
+from vkr_checker.checks.rulehelpers import mention_location
 from vkr_checker.checks.textfmt import fmt_num
 from vkr_checker.model.document import Document, Section
 from vkr_checker.model.finding import Finding, RuleResult
@@ -337,6 +338,29 @@ class Str05Appendices:
                         hint="Сошлитесь на приложение в основной части: «(см. Приложение А)».",
                     )  # fmt: skip
                 )
+        known = {a.key.upper() for a in doc.appendices}
+        reported: set[str] = set()
+        for r in ctx.facts.refs:
+            target = r.target.upper()
+            if (
+                r.kind != "appendix"
+                or target in known
+                or target in reported
+                or r.loc.paragraph_idx is None
+                or section_kind_of(doc, doc.paragraph(r.loc.paragraph_idx).section_id) == "APPENDIX"
+            ):
+                continue
+            reported.add(target)
+            out.append(
+                new_finding(
+                    self,
+                    f"В тексте есть ссылка на «Приложение {target}», но такого приложения нет.",
+                    fingerprint=f"STR-05|dangling|{target}",
+                    locations=[mention_location(ctx, r.loc)],
+                    method="regex",
+                    hint="Добавьте приложение или исправьте обозначение в ссылке.",
+                )  # fmt: skip
+            )
         return result_of(self, out)
 
 

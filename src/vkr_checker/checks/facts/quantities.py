@@ -37,7 +37,7 @@ _AGE_SD = re.compile(
 _PERCENT = re.compile(rf"({NUM})\s*%\s*(?:от\s+)?([А-Яа-яЁё]{{3,}})?")
 _GROUP_WORD = re.compile(r"([А-Яа-яЁё]+)\s+групп\w*", re.IGNORECASE)
 _PEOPLE_AFTER = re.compile(
-    rf"(?:\bn\s*=\s*)?({NUM})(?:\s+(?:человек|испытуем|респондент|участник))?"
+    rf"(?:\bn\s*=\s*({NUM})|({NUM})\s+(?:человек|испытуем|респондент|участник|студент))"
 )
 _SAMPLE_ANCHOR = re.compile(r"выборк|респондент|испытуем|участник|\b[nN]\s*=", re.IGNORECASE)
 _AGE_ANCHOR = re.compile(r"возраст", re.IGNORECASE)
@@ -63,8 +63,18 @@ class Quantity:
         return (self.kind, self.qualifier)
 
 
-def _qualifier(sentence: str, in_table: bool) -> str:
-    low = sentence.lower()
+_CLAUSE_END = re.compile(r"[,;:()—]")
+
+
+def _qualifier(sentence: str, in_table: bool, start: int = 0, end: int | None = None) -> str:
+    """Квалификатор относится к величине, если стоит перед ней в предложении или сразу после
+    неё в той же клаузе («n = 120 женщин»). «..., из них 60% женщин» n до запятой не затрагивает."""
+    if end is None:
+        low = sentence.lower()
+    else:
+        tail_match = _CLAUSE_END.search(sentence, end)
+        tail = sentence[end : tail_match.start() if tail_match else len(sentence)]
+        low = (sentence[:start] + " " + tail).lower()
     found = [s for s in QUALIFIER_STEMS if s in low]
     if in_table:
         found.append(TABLE_QUALIFIER)
@@ -79,12 +89,12 @@ def _extract_sentence(
     sentence: str, offset: int, context: str, mention: Mention, kind: str, in_table: bool
 ) -> list[Quantity]:
     out: list[Quantity] = []
-    qual = _qualifier(sentence, in_table)
 
     def add(qk: str, value: str, unit: str, m: re.Match, q: str | None = None) -> None:
         span = (offset + m.start(), offset + m.end())
         loc = Mention(mention.paragraph_idx, span, mention.cell)
-        out.append(Quantity(qk, qual if q is None else q, value, unit, loc, kind, m.group()))
+        qual = _qualifier(sentence, in_table, m.start(), m.end()) if q is None else q
+        out.append(Quantity(qk, qual, value, unit, loc, kind, m.group()))
 
     for m in _N_EQ.finditer(sentence):
         add("sample_n", normalize_number(m.group(1)), "чел", m)
@@ -121,7 +131,7 @@ def _group_sizes(sentence, offset, mention, kind, in_table) -> list[Quantity]:
         q = TABLE_QUALIFIER if in_table else ""
         raw = sentence[g.start() : m.end()]
         out.append(
-            Quantity(f"group_n:{label}", q, normalize_number(m.group(1)), "чел", loc, kind, raw)
+            Quantity(f"group_n:{label}", q, normalize_number(m.group(1) or m.group(2)), "чел", loc, kind, raw)
         )
     return out
 
