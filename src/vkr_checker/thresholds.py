@@ -36,6 +36,13 @@ class Thresholds:
     STRUCT_LOW_CONFIDENCE: float = 0.5
     CH_CONCL_TAIL_PARAS: int = 40
     STR04_DUP_RATIO: float = 85
+    TOC_MATCH_RATIO: float = 85
+    HEADING_MAX_CHARS: int = 300
+    HEURISTIC_HEADING_MAX_CHARS: int = 150
+    ALIGN_WINDOW: int = 20000
+    ALIGN_FUZZY_MIN: float = 85
+    ALIGN_KEY_LEN: int = 40
+    ALIGN_MIN_KEY: int = 8
     # смысловые сопоставления
     HYP_SIM_MIN: float = 0.7
     TSK_MATCH_MIN: float = 0.25
