@@ -275,23 +275,22 @@ def test_tbl05_vertical_top_is_violation(api, clean):
 
 
 @pytest.mark.parametrize("raw", ["n = 17", "p < 0,001", "1,5 ч"])
-def test_tbl06_regular_space_in_notation_is_suspicion(api, clean, raw):
-    t = clean.insert_after(
-        "Описательные статистики", p(f"Для группы получено значение {raw} по данным опроса.")
-    )
-    # вставка после подписи таблицы ломает порядок: ставим после абзаца с гипотезой
+def test_tbl06_regular_space_without_line_break_is_not_a_finding(api, clean, raw):
+    """Решение заказчика 2026-10-20: обычный пробел — проблема, только если запись разорвана
+    переносом строки; переносы видны лишь в вёрстке, без LibreOffice правило не выполняется."""
     t = clean.insert_after(
         "Гипотеза о том, что учебная", p(f"Для группы получено значение {raw} по данным опроса.")
     )
     rep = api.report(t)
-    assert susp(rep, "TBL-06") and not viol(rep, "TBL-06")
+    assert not susp(rep, "TBL-06") and not viol(rep, "TBL-06")
 
 
 def test_tbl06_nbsp_passes(api, clean):
     t = clean.insert_after(
         "Гипотеза о том, что учебная", p(f"Для группы получено значение n{NB}={NB}17 по данным.")
     )
-    assert not of_rule(api.report(t), "TBL-06")
+    rep = api.report(t)
+    assert not susp(rep, "TBL-06") and not viol(rep, "TBL-06")
 
 
 def test_tbl07_exact_row_height_is_suspicion(api, clean):

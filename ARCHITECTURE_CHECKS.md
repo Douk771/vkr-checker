@@ -125,8 +125,8 @@ class CheckContext:
 | TBL-02 | `tables_format.py` | стиль: `line_rule=auto, line=1.0`, `space_after=0` | Н | TABLES |
 | TBL-03 | `tables_format.py` | стиль: `layout_type=fixed`, сумма `grid_cols_cm` против `text_width_cm` ± `TBL_WIDTH_TOL_CM` | Н | TABLES |
 | TBL-04 | `tables_format.py` | рег «№» в шапке + ширина ≤ `NUM_COL_MAX_CM`; самый широкий столбец — с max средней длиной текста | П | TABLES |
-| TBL-05 | `tables_format.py` | стиль + классификатор ячейки: шапка (row 0 / `tblHeader`), номер, число (`^[\d\s,.\-–±<>=%*]+$`), текст | Н; для ячеек с долей цифр в `CELL_NUMERIC_GRAY` → П | TABLES |
-| TBL-06 | `typography.py` | рег: число/символ + обычный пробел + единица/знак (`n = 17`, `p < 0,001`, `1,5 ч`), в тексте и ячейках | П | — ; схлопывание по абзацу/таблице |
+| TBL-05 | `tables_format.py` | стиль + тип столбца целиком (`column_kinds`): нумерация пунктов («№…» или 1, 2, 3 по порядку) — по левому краю или по центру; только числа — по центру; текст или текст вперемешку с числами — по левому краю (решение заказчика 2026-10-20); шапка — по центру | Н; для ячеек с долей цифр в `CELL_NUMERIC_GRAY` → П | TABLES |
+| TBL-06 | `typography.py` | вёрстка: в тексте PDF (LibreOffice) строка заканчивается числом/обозначением, а следующая начинается со знака/единицы (`60⏎%`, `n =⏎37`, `n⏎= 37`); годы («2025 года») исключены. Сам обычный пробел без переноса — не находка (решение заказчика 2026-10-20) | П | LAYOUT; без вёрстки — «не проверяется» |
 | TBL-07 | `tables_format.py` | `height_rule=exact` и `height > ROW_EXACT_MAX_PT` | П | TABLES |
 | TBL-08 | `tables_format.py` | стиль `keep_next` у подписи; у строк длинной (> `LONG_TABLE_ROWS`) таблицы | подпись → Н; строки длинной → П | TABLES |
 | TBL-09 | `tables_format.py` | `style_exists == False` | Н | TABLES |

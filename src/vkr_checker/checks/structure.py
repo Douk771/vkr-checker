@@ -295,8 +295,10 @@ class Str05Appendices:
         j = idx - 1
         while j >= 0 and not ctx.doc.paragraph(j).text.strip():
             j -= 1
-        if j >= 0 and _APPENDICES_HEAD.match(ctx.doc.paragraph(j).text) and _breaks_page(
-            ctx.doc.paragraph(j)
+        if (
+            j >= 0
+            and _APPENDICES_HEAD.match(ctx.doc.paragraph(j).text)
+            and _breaks_page(ctx.doc.paragraph(j))
         ):
             return True
         page, prev = ctx.doc.page_of_paragraph(idx), ctx.doc.page_of_paragraph(idx - 1)

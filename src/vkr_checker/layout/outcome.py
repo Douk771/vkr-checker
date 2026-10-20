@@ -46,7 +46,12 @@ def compute_layout(
     except Exception:  # noqa: BLE001 - вёрстка не должна ронять проверку
         log.exception("неожиданная ошибка вёрстки")
         return LayoutOutcome(None, "внутренняя ошибка вёрстки")
-    layout = replace(layout, engine=engine, font_substitutions=tuple(font_substitutions(doc)))
+    layout = replace(
+        layout,
+        engine=engine,
+        font_substitutions=tuple(font_substitutions(doc)),
+        broken_notations=pages.broken,
+    )
     return LayoutOutcome(layout)
 
 

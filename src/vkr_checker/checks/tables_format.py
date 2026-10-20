@@ -7,6 +7,7 @@ from vkr_checker.checks.registry import register
 from vkr_checker.checks.tblutil import (
     CellPara,
     classify_cell,
+    column_kinds,
     column_widths,
     iter_cell_paragraphs,
     number_columns,
@@ -241,14 +242,37 @@ class Tbl05Alignment(_TableRule):
         by_cell: dict[tuple[int, int, int], CellPara] = {}
         for cp in iter_cell_paragraphs(doc):
             by_cell.setdefault((cp.table.idx, cp.cell.row, cp.cell.col), cp)
+        col_kinds = {t.idx: column_kinds(t, gray) for t in doc.tables}
         for cp in by_cell.values():
             kind = classify_cell(cp.table, cp.cell, gray)
             if kind is None:
                 continue
+            if kind != "header":
+                # тип определяет столбец целиком: числа в столбце вперемешку с текстом
+                # выравниваются как текст, нумерация пунктов («№ модуля») — как удобно
+                col = col_kinds[cp.table.idx].get(cp.cell.col)
+                if col == "index":
+                    kind = "index"
+                elif col in ("mixed", "text"):
+                    kind = "text"
+                elif col == "numeric":
+                    kind = "numeric"
             align = cp.para.fmt.align.value if cp.para.fmt.align else None
             origin = origin_hint(cp.para.fmt.align, cp.para.style_name)
-            if kind in ("header", "number", "numeric") and align != "center":
-                name = {"header": "шапки", "number": "номера", "numeric": "числа"}[kind]
+            if kind == "index" and align in ("justify", "right"):
+                out.append(
+                    _cell_finding(
+                        self,
+                        ctx,
+                        cp,
+                        "index_align",
+                        f"номер пункта выровнен «{align}»",
+                        hint="Номера пунктов — по центру или по левому краю.",
+                        values={"align": align, "cell_kind": kind},
+                    )  # fmt: skip
+                )
+            elif kind in ("header", "numeric") and align != "center":
+                name = {"header": "шапки", "numeric": "числа"}[kind]
                 out.append(
                     _cell_finding(
                         self,

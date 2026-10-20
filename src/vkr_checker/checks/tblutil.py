@@ -83,3 +83,49 @@ def classify_cell(table: Table, cell: Cell, gray: tuple[float, float]) -> CellKi
 def column_widths(table: Table) -> dict[int, float]:
     """Ширина столбцов сетки по номеру (с 1)."""
     return {i: w for i, w in enumerate(table.grid_cols_cm, 1)}
+
+
+ColumnKind = Literal["index", "numeric", "text", "mixed"]
+
+
+def column_kinds(table: Table, gray: tuple[float, float]) -> dict[int, ColumnKind]:
+    """Тип столбца по всем ячейкам данных (без шапки).
+
+    index — нумерация пунктов («№», «№ модуля» или 1, 2, 3… по порядку);
+    numeric — только числа; text — только текст; mixed — текст и числа вперемешку
+    («мужчины», «23–29» в одном столбце): такой столбец выравнивается как текстовый.
+    """
+    header = {c.col: c.text.strip() for c in table.rows[0].cells} if table.rows else {}
+    cells: dict[int, list[Cell]] = {}
+    for row in table.rows[1:]:
+        for c in row.cells:
+            if c.text.strip() and not _DASH_ONLY.match(c.text.strip()):
+                cells.setdefault(c.col, []).append(c)
+    out: dict[int, ColumnKind] = {}
+    for col, items in cells.items():
+        texts = [c.text.strip() for c in items]
+        if (
+            header.get(col, "").startswith("№")
+            or col in number_columns(table)
+            or (
+                all(t.isdigit() for t in texts)
+                and [int(t) for t in texts] == list(range(1, len(texts) + 1))
+            )
+        ):
+            out[col] = "index"
+            continue
+        kinds = {_value_kind(t, gray) for t in texts}
+        if kinds == {"numeric"}:
+            out[col] = "numeric"
+        elif kinds == {"text"}:
+            out[col] = "text"
+        elif "text" in kinds and "numeric" in kinds:
+            out[col] = "mixed"
+        # числа с единицами («12 мг») без чистого текста — решает сама ячейка
+    return out
+
+
+def _value_kind(text: str, gray: tuple[float, float]) -> str:
+    if _NUMERIC.match(text) and any(ch.isdigit() for ch in text):
+        return "numeric"
+    return "gray" if gray[0] <= digit_share(text) <= gray[1] else "text"

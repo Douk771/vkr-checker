@@ -180,12 +180,36 @@ def test_tbl05_numeric_left_header_left_text_justified():
 
 
 def test_tbl05_number_column_and_vertical_align():
+    """Нумерация пунктов («№») — по левому краю или по центру, обе допустимы."""
     rows = [["№", "Показатель"], ["1", "Возраст"]]
     formats = {(2, 1): fmt(align=V("left")), (2, 2): fmt(v_align=None, align=V("left"))}
     got = {
         f.fingerprint.split("|")[-1] for f in run(Tbl05Alignment(), build(rows, formats)).findings
     }
-    assert got == {"number_align", "v_align"}
+    assert got == {"v_align"}
+    formats[(2, 1)] = fmt(align=V("justify"))
+    got = {
+        f.fingerprint.split("|")[-1] for f in run(Tbl05Alignment(), build(rows, formats)).findings
+    }
+    assert "index_align" in got
+
+
+def test_tbl05_mixed_column_aligned_as_text_and_index_column_free():
+    rows = [
+        ["№ модуля", "Категория", "n"],
+        ["1", "мужчины", "37"],
+        ["2", "23–29", "9"],
+        ["3", "тимлид", "25"],
+    ]
+    left = {(r, c): fmt(align=V("left")) for r in (2, 3, 4) for c in (1, 2)}
+    res = run(Tbl05Alignment(), build(rows, left))
+    assert res.outcome == "passed"  # «23–29» среди текста — по левому; № — по левому можно
+    numbers_left = {**left, (2, 3): fmt(align=V("left"))}
+    got = {
+        f.fingerprint.split("|")[-1]
+        for f in run(Tbl05Alignment(), build(rows, numbers_left)).findings
+    }
+    assert got == {"numeric_align"}  # столбец только из чисел — по центру
 
 
 def test_tbl05_gray_zone_cells_are_suspicion_only_when_clearly_wrong():
@@ -266,45 +290,52 @@ def text_doc(*paras, cells=None):
         b.para(t)
     if cells:
         b.table(cells, caption="Таблица 1 - Данные")
-    return b.build()
+    return b.build(with_layout=True)
 
 
-def test_tbl06_flags_regular_spaces_in_text():
-    doc = text_doc("Выборка n = 17, различия значимы при p < 0,001, длительность 1,5 ч.")
-    res = run(Tbl06NonBreakingSpace(), doc)
-    by_fp = {f.fingerprint: f for f in res.findings}
-    assert set(by_fp) == {"TBL-06|stat", "TBL-06|unit|ч"}
-    stat = by_fp["TBL-06|stat"]
-    assert stat.level == "suspicion" and stat.count == 2
-    assert "n = 17" in stat.message or "n = 17" in stat.values["example"]
+def test_find_broken_notations_in_pdf_lines():
+    from vkr_checker.layout.pdftext import find_broken_notations
+
+    raw = "\r\n".join([
+        "мужчины составили 60",          # число в конце строки
+        "% выборки, а при n =",           # процент на новой строке; «n =» в конце
+        "37 различия значимы, p",         # «37» на новой строке; «p» в конце
+        "< 0,05. По данным 2025",         # знак на новой строке; год в конце
+        "года рост составил 1,5 ч в день.",
+    ])  # fmt: skip
+    got = [(b.before.split()[-1], b.after.split()[0]) for b in find_broken_notations(raw, 3)]
+    assert got == [("60", "%"), ("=", "37"), ("p", "<")]
+    assert all(b.page == 3 for b in find_broken_notations(raw, 3))
+    # «rs =» в конце последней строки страницы, дальше колонтитул «52» — не разрыв
+    assert not find_broken_notations("связь сильнее (rs =\r\n52", 52)
+    # а число отдельной строкой внутри страницы — продолжение записи
+    assert find_broken_notations("по MLQ-5X (n =\r\n50\r\nдалее текст", 50)
 
 
-def test_tbl06_nbsp_and_tight_forms_pass():
-    doc = text_doc("n = 17, p<0,05, 1,5 ч, п = 5 и n = 9.")
-    assert run(Tbl06NonBreakingSpace(), doc).outcome == "passed"
+def test_tbl06_reports_only_real_breaks_with_paragraph_location():
+    from vkr_checker.model.document import BrokenNotation
 
-
-def test_tbl06_mixed_nbsp_and_regular_is_flagged():
-    doc = text_doc("Получено n = 17.")
-    assert run(Tbl06NonBreakingSpace(), doc).outcome == "findings"
-
-
-def test_tbl06_cells_collapse_per_table_and_percent_unit():
-    doc = text_doc(cells=[["Показатель", "Значение"], ["n = 12", "17 %"], ["p < 0,05", "5"]])
-    by_fp = {f.fingerprint: f for f in run(Tbl06NonBreakingSpace(), doc).findings}
-    assert by_fp["TBL-06|stat"].count == 2 and by_fp["TBL-06|percent"].count == 1
-    assert by_fp["TBL-06|stat"].locations[0].table is not None
-
-
-def test_tbl06_years_not_flagged_and_paragraphs_grouped():
-    doc = text_doc("По данным 2025 года доля 60 % выросла.", "Ещё 40 % ответили иначе в 2024 г.")
+    b = DocBuilder()
+    b.heading("Результаты", kind="CHAPTER", number="2", page=1)
+    b.para("Мужчины составили 60 % выборки.", page=1)
+    doc = b.build(with_layout=True)
+    bn = BrokenNotation(page=1, before="Мужчины составили 60", after="% выборки.")
+    doc = replace(doc, layout=replace(doc.layout, broken_notations=(bn,)))
     (f,) = run(Tbl06NonBreakingSpace(), doc).findings
-    assert f.fingerprint == "TBL-06|percent" and f.count == 2
+    assert f.level == "suspicion" and "60⏎%" in f.message
+    assert f.locations and f.locations[0].paragraph_idx is not None
 
 
-def test_tbl06_does_not_flag_plain_prose():
-    doc = text_doc("С 3 по 5 класс учились 2 группы, в 5 классе было 25 человек. Это был 1 раз.")
+def test_tbl06_regular_spaces_without_break_pass():
+    doc = text_doc("Выборка n = 17, различия значимы при p < 0,001, длительность 1,5 ч.")
     assert run(Tbl06NonBreakingSpace(), doc).outcome == "passed"
+
+
+def test_tbl06_without_layout_is_not_checked():
+    b = DocBuilder()
+    b.heading("Результаты", kind="CHAPTER", number="2")
+    b.para("n = 17")
+    assert run(Tbl06NonBreakingSpace(), b.build()).outcome == "not_checked"
 
 
 def test_tbl04_sample_size_column_n_is_not_number_column():
