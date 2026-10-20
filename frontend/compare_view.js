@@ -184,7 +184,7 @@ export function renderCompareDiff(compare, root) {
   for (const n of [renderSections(diff, indexMoves(diff.moves)), renderMoves(diff), renderNumbers(diff, layout),
     renderObjects("Таблицы", "cmp-tables", diff.tables, "Изменений таблиц нет."),
     renderObjects("Рисунки", "cmp-figures", diff.figures, "Изменений рисунков нет."),
-    renderImpact(diff, layout), renderDynamics(diff)]) root.append(n);
+    renderImpact(diff, layout), renderDynamics(diff)]) if (n) root.append(n);
 }
 
 /** Сначала дифф, затем полный отчёт новой версии тем же рендером. */

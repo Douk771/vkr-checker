@@ -44,7 +44,37 @@ export function groupParagraphs(paragraphs) {
 
 /** Сегменты -> безопасный список {op,text}; неизвестный op трактуется как equal. */
 export function normalizeSegments(segments) {
-  return (segments || []).map((s) => ({ op: s.op === "ins" || s.op === "del" ? s.op : "equal", text: String(s.text ?? "") }));
+  const list = (segments || []).map((s) => ({ op: s.op === "ins" || s.op === "del" ? s.op : "equal", text: String(s.text ?? "") }));
+  return groupChanges(list);
+}
+
+/**
+ * Пословный дифф переписанной фразы («[-Учебная-][+Выявлена+] [-мотивация-][+положительная+] …»)
+ * склеивается в один блок «удалено» и один «добавлено». Пробел между изменениями входит в оба
+ * блока, только когда в текущем блоке уже есть и удаление, и вставка, — так текст «до» и «после»
+ * (segmentsText) остаётся точным.
+ */
+function groupChanges(list) {
+  const out = [];
+  let del = "", ins = "";
+  const flush = () => {
+    if (del) out.push({ op: "del", text: del });
+    if (ins) out.push({ op: "ins", text: ins });
+    del = ins = "";
+  };
+  list.forEach((s, i) => {
+    if (s.op === "del") del += s.text;
+    else if (s.op === "ins") ins += s.text;
+    else if (del && ins && /^\s+$/.test(s.text) && list[i + 1] && list[i + 1].op !== "equal") {
+      del += s.text;
+      ins += s.text;
+    } else {
+      flush();
+      out.push(s);
+    }
+  });
+  flush();
+  return out;
 }
 
 /** Текст абзаца целиком по сегментам: для режима "после" (без del) или "до" (без ins). */

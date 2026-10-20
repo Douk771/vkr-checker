@@ -46,6 +46,24 @@ def _fmt_caption(caption: Caption) -> str:
     return f"{KIND_NAME[caption.kind]} {caption.number}"
 
 
+_KIND_ACC = {"table": "таблицу", "figure": "рисунок"}
+
+
+def _caption_acc(caption: Caption) -> str:
+    """«таблицу 2», «рисунок 1» — для «нет ссылки на …»."""
+    noun = _KIND_ACC.get(caption.kind, KIND_NAME[caption.kind].lower())
+    return f"{noun} {caption.number}"
+
+
+def _ru_plural(n: int, one: str, few: str, many: str) -> str:
+    n = abs(n)
+    if n % 10 == 1 and n % 100 != 11:
+        return one
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return few
+    return many
+
+
 @register
 class Num01CaptionNumbering(_NumRule):
     id = "NUM-01"
@@ -236,7 +254,7 @@ class Num02References(_NumRule):
             label = _fmt_caption(caption)
             if not own:
                 out.append(new_finding(
-                    self, f"На {label} нет ссылки в тексте.",
+                    self, f"В тексте нет ссылки на {_caption_acc(caption)}.",
                     fingerprint=f"NUM-02|noref|{caption.kind}|{caption.number}", method="regex",
                     locations=_caption_loc(ctx, caption),
                     hint="Сошлитесь на объект до его появления: «(табл. 1)», «на рис. 2».",
@@ -270,10 +288,10 @@ _COUNT = re.compile(
 )
 _NOUN_KEY = {"рисунк": "figure", "таблиц": "table", "приложени": "appendix", "источник": "source"}
 _NOUN_RU = {
-    "figure": "рисунков",
-    "table": "таблиц",
-    "appendix": "приложений",
-    "source": "источников",
+    "figure": ("рисунок", "рисунка", "рисунков"),
+    "table": ("таблица", "таблицы", "таблиц"),
+    "appendix": ("приложение", "приложения", "приложений"),
+    "source": ("источник", "источника", "источников"),
 }
 
 
@@ -329,8 +347,8 @@ class Num03TotalsPhrase(_NumRule):
         for key, (declared, par) in sorted(found.items()):
             if declared != actual[key]:
                 out.append(new_finding(
-                    self, f"В тексте указано {declared} {_NOUN_RU[key]}, а в работе их "
-                    f"{actual[key]} (приложения в основной части не считаются).",
+                    self, f"В тексте указано: {declared} {_ru_plural(declared, *_NOUN_RU[key])}, "
+                    f"а в работе — {actual[key]} (приложения в основной части не считаются).",
                     fingerprint=f"NUM-03|{key}", method="regex",
                     locations=[ctx.loc.paragraph(par)],
                     values={"declared": declared, "actual": actual[key]},

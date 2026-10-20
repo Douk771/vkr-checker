@@ -76,6 +76,16 @@ def test_con01_same_quantity_with_different_values_and_qualifier_ignored():
     assert res.artifacts["numbers_index"]
 
 
+def test_con01_participated_n_people_vs_n_equals():
+    """«приняли участие 112 человек» (без слов «респондент/выборка») сравнивается с n = 120."""
+    items = [
+        H("ВВЕДЕНИЕ"), "Выборка исследования: n = 120 студентов магистратуры.",
+        H("ГЛАВА 2. Э"), "В исследовании приняли участие 112 человек в возрасте от 18 до 25 лет.",
+    ]  # fmt: skip
+    res = run(Con01SameQuantities(), items)
+    assert [f.values["values"] for f in res.findings] == [["112", "120"]]
+
+
 def test_con01_same_values_no_finding():
     items = [H("ВВЕДЕНИЕ"), "Выборка n = 124.", H("ГЛАВА 1. Т"), "Приняли участие 124 респондента."]
     assert not run(Con01SameQuantities(), items).findings

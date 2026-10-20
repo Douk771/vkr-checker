@@ -65,3 +65,20 @@ test("summary and empty diff", () => {
   assert.equal(isEmptyDiff({}), true);
   assert.equal(isEmptyDiff({ sections: [{ status: "unchanged", paragraphs: [] }], tables: [{ status: "unchanged", flags: [], rows: [] }] }), true);
 });
+
+test("normalizeSegments: переписанная фраза склеивается в один del и один ins", () => {
+  const segs = [
+    { op: "del", text: "Учебная" }, { op: "ins", text: "Выявлена" }, { op: "equal", text: " " },
+    { op: "del", text: "мотивация" }, { op: "ins", text: "связь" }, { op: "equal", text: " (r = 0,45)" },
+  ];
+  assert.deepEqual(normalizeSegments(segs), [
+    { op: "del", text: "Учебная мотивация" }, { op: "ins", text: "Выявлена связь" }, { op: "equal", text: " (r = 0,45)" },
+  ]);
+  assert.equal(segmentsText(segs, "old"), "Учебная мотивация (r = 0,45)");
+  assert.equal(segmentsText(segs, "new"), "Выявлена связь (r = 0,45)");
+});
+
+test("normalizeSegments: одиночная замена числа не трогается", () => {
+  const segs = [{ op: "equal", text: "приняли " }, { op: "del", text: "112" }, { op: "ins", text: "120" }, { op: "equal", text: " человек" }];
+  assert.deepEqual(normalizeSegments(segs), segs);
+});

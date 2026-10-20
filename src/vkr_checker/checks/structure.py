@@ -364,6 +364,22 @@ class Str05Appendices:
         return result_of(self, out)
 
 
+# Нумерация страниц Word может начинаться не с первой страницы PDF (титул без
+# номера и т.п.). Сдвиг принимаем, только если он небольшой и с ним сходится
+# большинство пунктов оглавления; иначе (оглавление целиком устарело) сравниваем
+# без сдвига — медиана по устаревшему оглавлению дала бы бессмысленные, в том
+# числе отрицательные, номера страниц.
+MAX_TOC_OFFSET = 3
+
+
+def _toc_offset(diffs: list[int], tolerance: int) -> int:
+    candidate = round(median(diffs))
+    if abs(candidate) > MAX_TOC_OFFSET:
+        return 0
+    agree = sum(1 for d in diffs if abs(d - candidate) <= tolerance)
+    return candidate if agree * 2 > len(diffs) else 0
+
+
 @register
 class Str06TocPages:
     id = "STR-06"
@@ -387,8 +403,7 @@ class Str06TocPages:
                 pairs.append((e, sec, actual))
         if not pairs:
             return result_of(self, [])
-        # нумерация страниц Word может начинаться не с первой страницы PDF: сравниваем со сдвигом
-        offset = median(actual - e.page_num for e, _, actual in pairs)
+        offset = _toc_offset([actual - e.page_num for e, _, actual in pairs], ctx.th.PAGE_TOLERANCE)
         out: list[Finding] = []
         for e, sec, actual in pairs:
             diff = actual - e.page_num - offset

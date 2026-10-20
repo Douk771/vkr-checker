@@ -39,7 +39,11 @@ _GROUP_WORD = re.compile(r"([А-Яа-яЁё]+)\s+групп\w*", re.IGNORECASE)
 _PEOPLE_AFTER = re.compile(
     rf"(?:\bn\s*=\s*({NUM})|({NUM})\s+(?:человек|испытуем|респондент|участник|студент))"
 )
-_SAMPLE_ANCHOR = re.compile(r"выборк|респондент|испытуем|участник|\b[nN]\s*=", re.IGNORECASE)
+# «В исследовании приняли участие 112 человек», «было опрошено 120 студентов».
+_SAMPLE_ANCHOR = re.compile(
+    r"выборк|респондент|испытуем|участник|участи[еяю]|опрошен|обследован|\b[nN]\s*=",
+    re.IGNORECASE,
+)
 _AGE_ANCHOR = re.compile(r"возраст", re.IGNORECASE)
 QUALIFIER_STEMS = (
     "групп", "подвыборк", "из них", "в том числе", "мужчин", "женщин",

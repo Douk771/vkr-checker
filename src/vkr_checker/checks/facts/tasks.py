@@ -54,11 +54,18 @@ def items_from_element(doc: Document, element: IntroElement) -> list[ListItem]:
         offset = first.text.find(element.text)
         for text, span in _split_inline(element.text, max(offset, 0)):
             items.append(ListItem(0, _clean(text), first.idx, span))
+    seen_listed = False
     for idx in element.content_paragraphs[1:]:
         p = doc.paragraph(idx)
         if idx in headings or not p.text.strip():
             continue
         pieces = _split_inline(p.text, 0) if _ENUM.search(p.text) and not p.num_label else None
+        listed = _is_listed(p) or bool(pieces and len(pieces) >= 2)
+        # Нумерованный список закончился: следующий обычный абзац («Структура работы…»)
+        # относится уже не к этому элементу, даже если сам он элементом не распознан.
+        if seen_listed and not listed:
+            break
+        seen_listed = seen_listed or listed
         if pieces and len(pieces) >= 2:
             items.extend(ListItem(0, _clean(t), p.idx, sp) for t, sp in pieces)
         else:

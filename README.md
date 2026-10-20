@@ -50,8 +50,10 @@ VKR_MODE=server VKR_PASSWORD='...' vkr-checker
 ### Docker
 
 ```bash
-docker compose up --build
+docker compose -p vkr-checker up --build
 ```
+
+Флаг `-p` задаёт имя проекта. Без него Docker Compose берёт имя из названия папки, а из кириллического названия (например, «ВКР требования») получается пустая строка, и запуск падает с ошибкой `project name must not be empty`.
 
 Контейнер работает под non-root с read-only корнем, LibreOffice внутри образа; healthcheck - `/api/health`.
 

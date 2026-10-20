@@ -225,6 +225,24 @@ def test_str06_offset_tolerant_and_flags_outlier():
     assert res.findings[0].level == "suspicion" and res.findings[0].method == "layout"
 
 
+def test_str06_stale_toc_gives_no_negative_pages():
+    """Оглавление целиком устарело (всё смещено на 30+ стр.): сдвиг не применяется."""
+    b = DocBuilder()
+    for i, title in enumerate(["Введение", "Теория", "Практика"], 1):
+        b.heading(title, kind="CHAPTER", number=str(i), page=3 + i * 20)
+    doc = b.build(with_layout=True)
+    entries = [
+        TocEntry("Введение", page_num=3, resolved_section_id="s1"),
+        TocEntry("Теория", page_num=4, resolved_section_id="s2"),
+        TocEntry("Практика", page_num=5, resolved_section_id="s3"),
+    ]
+    doc = replace(doc, toc=Toc(source="toc_field", entries=tuple(entries)))
+    res = run(Str06TocPages(), doc)
+    assert len(res.findings) == 3
+    pages = [f.values["layout_page"] for f in res.findings]
+    assert pages == [23, 43, 63]
+
+
 def test_str06_without_layout_is_not_checked():
     doc = toc_doc([TocEntry("Введение", page_num=3, resolved_section_id="s3")])
     assert run(Str06TocPages(), doc).outcome == "not_checked"

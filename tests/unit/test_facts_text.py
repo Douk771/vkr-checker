@@ -115,6 +115,18 @@ def test_defense_positions():
     assert [p.text for p in f.defense_positions] == ["Связь значима.", "Группы различаются."]
 
 
+def test_defense_positions_list_ends_before_plain_paragraph():
+    f = thesis(
+        intro=[
+            "Положения, выносимые на защиту:",
+            "1. Связь значима.",
+            "2. Группы различаются.",
+            "Структура работы. Работа состоит из введения, двух глав и заключения.",
+        ]
+    )
+    assert [p.text for p in f.defense_positions] == ["Связь значима.", "Группы различаются."]
+
+
 def test_conclusions_numbered_and_unnumbered():
     f = thesis(
         concl=[
