@@ -60,7 +60,7 @@ def items_from_element(doc: Document, element: IntroElement) -> list[ListItem]:
         if idx in headings or not p.text.strip():
             continue
         pieces = _split_inline(p.text, 0) if _ENUM.search(p.text) and not p.num_label else None
-        listed = _is_listed(p) or bool(pieces and len(pieces) >= 2)
+        listed = is_listed(p) or bool(pieces and len(pieces) >= 2)
         # Нумерованный список закончился: следующий обычный абзац («Структура работы…»)
         # относится уже не к этому элементу, даже если сам он элементом не распознан.
         if seen_listed and not listed:
@@ -74,7 +74,7 @@ def items_from_element(doc: Document, element: IntroElement) -> list[ListItem]:
     return [ListItem(n, i.text, i.paragraph_idx, i.span) for n, i in enumerate(items, 1)]
 
 
-def _is_listed(p: Paragraph) -> bool:
+def is_listed(p: Paragraph) -> bool:
     return bool(p.num_label) or bool(re.match(r"^\s*\d{1,2}[.)]\s+\S", p.text))
 
 
@@ -92,7 +92,7 @@ def section_items(doc: Document, section) -> list[ListItem]:
         for p in paragraphs_in(doc, section)
         if p.idx != section.heading_paragraph_idx and p.text.strip()
     ]
-    chosen = [p for p in paras if _is_listed(p)] or [
+    chosen = [p for p in paras if is_listed(p)] or [
         p for p in paras if len(p.text) >= MIN_CONCLUSION_CHARS
     ]
     result = []

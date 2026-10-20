@@ -47,8 +47,17 @@ _SAMPLE_ANCHOR = re.compile(
 _AGE_ANCHOR = re.compile(r"возраст", re.IGNORECASE)
 QUALIFIER_STEMS = (
     "групп", "подвыборк", "из них", "в том числе", "мужчин", "женщин",
-    "экспериментальн", "контрольн",
+    "экспериментальн", "контрольн", "стаж", "команд", "численност",
 )  # fmt: skip
+# Не объём выборки: «у 35 респондентов (56,5 %)» — часть выборки; «150–200 человек» —
+# диапазон; «9,5 человека» — среднее; ссылка [N] в предложении — данные из литературы.
+_SUBSET_BEFORE = re.compile(r"(?:\bу|[-–—]|\bдо|\bот)\s*$", re.IGNORECASE)
+_GROUP_LIST_AFTER = re.compile(r"^\s*(?:,|и)\s*\d")
+_SHARE_AFTER = re.compile(r"^\s*\(\s*\d+(?:[.,]\d+)?\s*%")
+_CITATION = re.compile(r"\[\d+(?:[,;\s–—-]+\d+)*(?:,\s*с\.[^\]]*)?\]")
+# Диапазон лет — возраст, только если «возраст» стоит раньше в том же предложении
+# и между ними нет другой характеристики («стаж от 1 до 19 лет»).
+_AGE_BEFORE = re.compile(r"возраст\w*(?:(?!стаж|численност|команд|опыт)[^.;])*$", re.IGNORECASE)
 TABLE_QUALIFIER = "table"
 
 
@@ -85,6 +94,14 @@ def _qualifier(sentence: str, in_table: bool, start: int = 0, end: int | None = 
     return "|".join(found)
 
 
+def _is_whole_sample(sentence: str, m: re.Match) -> bool:
+    if re.search(r"[.,]\d", m.group(1)):
+        return False
+    return not (
+        _SUBSET_BEFORE.search(sentence[: m.start()]) or _SHARE_AFTER.match(sentence[m.end() :])
+    )
+
+
 def _object_lemma(word: str | None) -> str:
     return lemma(word) if word else ""
 
@@ -101,12 +118,19 @@ def _extract_sentence(
         out.append(Quantity(qk, qual, value, unit, loc, kind, m.group()))
 
     for m in _N_EQ.finditer(sentence):
+        if _GROUP_LIST_AFTER.match(sentence[m.end() :]):
+            continue  # «n = 35, 19 и 8» — размеры групп, а не объём выборки
         add("sample_n", normalize_number(m.group(1)), "чел", m)
     anchored = bool(_SAMPLE_ANCHOR.search(context))
+    literature = bool(_CITATION.search(sentence))
     for m in _N_PEOPLE.finditer(sentence):
+        if literature or not _is_whole_sample(sentence, m):
+            continue
         if anchored or re.match(r"респондент|испытуем|участник", m.group(2), re.IGNORECASE):
             add("sample_n", normalize_number(m.group(1)), "чел", m)
     for m in _AGE_RANGE.finditer(sentence):
+        if not _AGE_BEFORE.search(sentence[: m.start()]):
+            continue
         lo = m.group(1) or m.group(3)
         hi = m.group(2) or m.group(4)
         add("age_min_max", f"{normalize_number(lo)}-{normalize_number(hi)}", "лет", m)

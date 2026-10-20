@@ -196,3 +196,44 @@ def test_hyp01_partially_is_compatible_with_mixed_chapter2():
     items = _hyp_items(body, ["Итоги."], ["Гипотеза частично подтвердилась."])
     res = run(Hyp01HypothesisConsistency(), items)
     assert "HYP-01|status_mismatch" not in [f.fingerprint for f in res.findings]
+
+
+def test_hyp01_only_restatements_compared_by_part_number():
+    """Сравниваются только пересказы «Гипотеза N …: <текст>» — с частью N, без хвоста статистики;
+    «проверка гипотез исследования» формулировкой не считается."""
+    from vkr_checker.checks.hypothesis import _restatement
+
+    assert _restatement("Основной задачей анализа выступила проверка гипотез исследования.") is None
+    num, body = _restatement(
+        "Гипотеза 2 подтверждена: стиль теснее связан с самооценкой (0,40); по критерию Стайгера."
+    )
+    assert num == 2 and "Стайгера" not in body and "0,40" not in body
+
+
+def test_met01_method_applied_in_appendix_counts():
+    items = [
+        H("ВВЕДЕНИЕ"), "Методы: оценка надёжности шкал (α Кронбаха).",
+        H("ГЛАВА 1. Т"), "Теория.",
+        H("ГЛАВА 2. Э"), H("2.1. Методы", 2), "Надёжность оценивалась по α Кронбаха.",
+        H("2.2. Результаты", 2), "Результаты.",
+        H("ЗАКЛЮЧЕНИЕ"), "Итоги.",
+        H("ПРИЛОЖЕНИЕ 1"), "Надёжность шкал: α Кронбаха = 0,83.",
+    ]  # fmt: skip
+    res = run(Met01MethodsConsistency(), items)
+    assert not [f for f in res.findings if "не применён" in f.message]
+
+
+def test_hyp01_labeled_parts_compared_with_same_number():
+    items = frame(
+        [
+            "Гипотезы исследования:",
+            "Гипотеза 1 (основная): чем выше мотивация, тем выше адаптация студентов вуза.",
+            "Гипотеза 2: тревожность студентов отрицательно связана с успеваемостью в сессию.",
+        ],
+        results=[
+            "Таким образом, гипотеза 2 подтверждена: тревожность студентов отрицательно связана "
+            "с успеваемостью (rs = −0,31); различие значимо по критерию Стайгера.",
+        ],
+    )
+    res = run(Hyp01HypothesisConsistency(), items)
+    assert not [f for f in res.findings if "расходится с введением" in f.message]

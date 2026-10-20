@@ -262,6 +262,14 @@ class Str04ConclusionDuplicates:
         return result_of(self, out)
 
 
+_APPENDICES_HEAD = re.compile(r"^\s*приложени[яе]\s*$", re.IGNORECASE)
+
+
+def _breaks_page(para) -> bool:
+    fmt = para.fmt.page_break_before
+    return bool(para.page_break_before) or (fmt is not None and fmt.value is True)
+
+
 @register
 class Str05Appendices:
     id = "STR-05"
@@ -280,10 +288,16 @@ class Str05Appendices:
         if idx is None:
             return False
         para = ctx.doc.paragraph(idx)
-        if para.page_break_before:
+        if _breaks_page(para):
             return True
-        fmt = para.fmt.page_break_before
-        if fmt is not None and fmt.value is True:
+        # первое приложение сразу под общим заголовком «ПРИЛОЖЕНИЯ» (между ними только
+        # пустые абзацы): страницу открывает этот заголовок
+        j = idx - 1
+        while j >= 0 and not ctx.doc.paragraph(j).text.strip():
+            j -= 1
+        if j >= 0 and _APPENDICES_HEAD.match(ctx.doc.paragraph(j).text) and _breaks_page(
+            ctx.doc.paragraph(j)
+        ):
             return True
         page, prev = ctx.doc.page_of_paragraph(idx), ctx.doc.page_of_paragraph(idx - 1)
         return page is not None and prev is not None and page > prev

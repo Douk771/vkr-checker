@@ -334,6 +334,11 @@ class Tbl07RowHeight(_TableRule):
         return result_of(self, out)
 
 
+def _keeps_next(p) -> bool:
+    keep = p.fmt.keep_next
+    return keep is not None and keep.value is True
+
+
 @register
 class Tbl08KeepNext:
     id = "TBL-08"
@@ -351,19 +356,21 @@ class Tbl08KeepNext:
         for t in doc.tables:
             label = t.number_label(doc)
             cap = doc.captions[t.caption_idx] if t.caption_idx is not None else None
-            if cap is not None and cap.paragraph_idx is not None:
-                keep = doc.paragraph(cap.paragraph_idx).fmt.keep_next
-                if keep is None or keep.value is not True:
-                    out.append(
-                        new_finding(
-                            self,
-                            f"{label}: у подписи не стоит «не отрывать от следующего».",
-                            fingerprint=f"TBL-08|{t.idx}|caption",
-                            locations=[ctx.loc.paragraph(cap.paragraph_idx)],
-                            method="style",
-                            hint="Абзац → Положение на странице → «не отрывать от следующего».",
-                        )  # fmt: skip
-                    )
+            cap_paras = [] if cap is None else [
+                i for i in (cap.paragraph_idx, cap.title_paragraph_idx) if i is not None
+            ]  # fmt: skip
+            loose = [i for i in cap_paras if not _keeps_next(doc.paragraph(i))]
+            if loose:
+                out.append(
+                    new_finding(
+                        self,
+                        f"{label}: у подписи не стоит «не отрывать от следующего».",
+                        fingerprint=f"TBL-08|{t.idx}|caption",
+                        locations=[ctx.loc.paragraph(i) for i in loose],
+                        method="style",
+                        hint="Абзац → Положение на странице → «не отрывать от следующего».",
+                    )  # fmt: skip
+                )
             if len(t.rows) > ctx.th.LONG_TABLE_ROWS:
                 glued = self._glued_rows(t)
                 if glued:

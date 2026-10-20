@@ -150,3 +150,33 @@ def test_con04_different_division_methods():
     res = run(Con04GroupingMethods(), items)
     assert len(res.findings) == 1 and res.findings[0].values["methods"] == ["norms", "tercile"]
     assert not run(Con04GroupingMethods(), items[:2]).findings
+
+
+def test_con01_subgroups_ranges_means_and_group_lists_are_not_sample_size():
+    items = [
+        H("ВВЕДЕНИЕ"), "Выборка: n = 62 руководителя.",
+        H("ГЛАВА 2. Э"),
+        "Коллегиальный компонент доминирует у 35 респондентов (56,5 %).",
+        "Высокий уровень продемонстрировали 50 участников (80,6 %).",
+        "Численность команды — 9,5 человека (от 3 до 22 человек).",
+        "Нужна выборка порядка 150–200 человек [39].",
+        "Группы: (n = 35, 19 и 8).",
+    ]  # fmt: skip
+    assert not run(Con01SameQuantities(), items).findings
+
+
+def test_con01_work_experience_range_is_not_age():
+    items = [
+        H("ВВЕДЕНИЕ"), "Возраст от 23 до 52 лет, стаж от 1 года до 19 лет.",
+        H("ГЛАВА 2. Э"), "Возраст респондентов — от 23 до 52 лет; при стаже 1–2 года выборов 8.",
+    ]  # fmt: skip
+    assert not run(Con01SameQuantities(), items).findings
+
+
+def test_con03_skips_literature_chapter_and_cited_sentences():
+    items = [
+        H("ГЛАВА 1. Т"),
+        "Руководители указывают: интеллект (38 %), конфликты (31 %), мышление (41 %).",
+        H("ГЛАВА 2. Э"), "По данным опроса [5], ответы: 50 %, 40 % и 30 %.",
+    ]  # fmt: skip
+    assert not run(Con03PercentSums(), items).findings

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from itertools import pairwise
 
 from vkr_checker.checks.base import CheckContext, Need, Source, new_finding, result_of
-from vkr_checker.checks.facts.tasks import ListItem
+from vkr_checker.checks.facts.tasks import ListItem, is_listed
 from vkr_checker.checks.registry import register
 from vkr_checker.nlp.morph import content_lemmas
 
@@ -122,8 +122,13 @@ class Tsk01TasksVsConclusions:
                         values={"task_index": t.item.index},
                     )  # fmt: skip
                 )
+        # Заключение сплошным текстом: абзацы с рекомендациями, перспективами и итоговой
+        # фразой — не «выводы без задачи», и их число с задачами не сравнивается.
+        prose = not all(
+            is_listed(ctx.doc.paragraph(c.item.paragraph_idx)) for c in concl
+        )  # fmt: skip
         for j, c in enumerate(concl):
-            if j not in used_c:
+            if j not in used_c and not prose:
                 out.append(
                     new_finding(
                         self,
@@ -134,7 +139,10 @@ class Tsk01TasksVsConclusions:
                         values={"conclusion_index": c.item.index},
                     )  # fmt: skip
                 )
-        if abs(len(tasks) - len(concl)) > ctx.th.TSK_COUNT_DIFF:
+        gap = len(tasks) - len(concl)
+        # в сплошном тексте лишние абзацы (рекомендации, перспективы) — норма; тревожно,
+        # только когда абзацев заметно меньше, чем задач
+        if (gap if prose else abs(gap)) > ctx.th.TSK_COUNT_DIFF:
             out.append(
                 new_finding(
                     self,

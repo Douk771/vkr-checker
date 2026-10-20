@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import difflib
+import re
 
 from vkr_checker.checks.base import CheckContext, Need, Source, new_finding, result_of
 from vkr_checker.checks.facts.hypothesis import STATUS_TITLES
@@ -17,6 +18,39 @@ SCOPE_TITLES = {
     "CHAPTER_CONCLUSIONS": "в выводах к главе",
     "CONCLUSION": "в заключении",
 }
+
+
+# Пересказ гипотезы: «Гипотеза 2 подтверждена: <текст>», «гипотеза о том, что <текст>»,
+# «гипотеза о влиянии <текст>».
+# Прочие упоминания («проверка гипотез исследования», «все гипотезы подтверждены») —
+# про статус, их формулировку с введением не сравниваем.
+_RESTATE = re.compile(
+    r"гипотез\w*\s*(?:№\s*)?(?P<num>\d+)?[^:.;]{0,60}?:\s*(?P<body>.+)", re.IGNORECASE | re.DOTALL
+)
+_ABOUT = re.compile(
+    r"гипотез\w*\s+(?:о\s+том,?\s+что|об?)\s+(?P<body>.+)", re.IGNORECASE | re.DOTALL
+)
+
+
+_PAREN = re.compile(r"\([^)]*\)")
+
+
+def _restatement(text: str) -> tuple[int | None, str] | None:
+    m = _RESTATE.search(text) or _ABOUT.search(text)
+    if m is None:
+        return None
+    num = m.groupdict().get("num")
+    # сам пересказ — до «;», без скобок с цифрами: дальше обычно идут статистика и пояснения
+    body = _PAREN.sub(" ", m.group("body").split(";", 1)[0])
+    return (int(num) if num else None), body
+
+
+def _similarity(intro: list[str], text: list[str]) -> float:
+    """Жаккар или доля слов пересказа, взятых из введения: сокращённый пересказ без новых
+    слов расхождением не считается."""
+    a, b = frozenset(intro), frozenset(text)
+    contained = len(a & b) / len(b) if b else 0.0
+    return max(jaccard(a, b), contained)
 
 
 def _lemmas(text: str) -> list[str]:
@@ -51,14 +85,20 @@ class Hyp01HypothesisConsistency:
         if not parts:
             return result_of(self, [])
         whole = _lemmas(" ".join(p.text for p in parts))
-        variants = [(whole, "целиком")] + [(_lemmas(p.text), f"часть {p.index}") for p in parts]
+        by_index = {p.index: _lemmas(p.text) for p in parts}
+        variants = [(whole, "целиком")] + [(lm, f"часть {i}") for i, lm in by_index.items()]
         out = []
         for m in ctx.facts.hypothesis_mentions:
-            lemmas = _lemmas(m.text)
+            restated = _restatement(m.text)
+            if restated is None:
+                continue
+            num, body = restated
+            lemmas = _lemmas(body)
             if len(lemmas) < MIN_LEMMAS:
                 continue
-            best = max(variants, key=lambda v: jaccard(frozenset(v[0]), frozenset(lemmas)))
-            sim = jaccard(frozenset(best[0]), frozenset(lemmas))
+            candidates = [(by_index[num], f"часть {num}")] if num in by_index else variants
+            best = max(candidates, key=lambda v: _similarity(v[0], lemmas))
+            sim = _similarity(best[0], lemmas)
             if sim >= ctx.th.HYP_SIM_MIN:
                 continue
             where = SCOPE_TITLES.get(m.section_kind, "в тексте")

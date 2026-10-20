@@ -36,6 +36,24 @@ def _match(p: Paragraph):
     return CAPTION.match(text)
 
 
+def _is_bare_label(m: re.Match) -> bool:
+    """«Таблица 1» отдельной строкой: название идёт следующим абзацем."""
+    return not m.group("sep") and not m.group("title").strip()
+
+
+def _title_paragraph(body: list, pos: int) -> Paragraph | None:
+    """Следующий непустой абзац как название двухстрочной подписи (не сама подпись)."""
+    if pos + 1 >= len(body):
+        return None
+    nxt = body[pos + 1]
+    if not isinstance(nxt, Paragraph):
+        return None
+    text = " ".join(nxt.full_text.split())
+    if not text or len(text) > _MAX_CAPTION_CHARS or _match(nxt) is not None:
+        return None
+    return nxt
+
+
 def _is_caption_like(m: re.Match) -> bool:
     """Без разделителя после номера «Таблица 3 показывает ...» - обычное предложение."""
     return bool(m.group("sep")) and bool(m.group("title").strip())
@@ -58,13 +76,16 @@ def build_captions(doc: Document, in_appendix) -> Document:
     image_cap: dict[int, int] = {}
     used: set[int] = set()
 
-    def add(p: Paragraph, m: re.Match, kind: str, target: int | None, image_idx=None) -> int:
+    def add(
+        p: Paragraph, m: re.Match, kind: str, target: int | None, image_idx=None, title_p=None
+    ) -> int:
         number = m.group("num")
+        title = " ".join(title_p.full_text.split()) if title_p else m.group("title").strip()
         captions.append(
             Caption(
                 kind=kind,
                 number=number,
-                title=m.group("title").strip(),  # type: ignore[arg-type]
+                title=title,  # type: ignore[arg-type]
                 label_text=m.group("label"),
                 number_parts=_parts(number),
                 number_source=_source(doc, p, seq_stale),  # type: ignore[arg-type]
@@ -73,6 +94,7 @@ def build_captions(doc: Document, in_appendix) -> Document:
                 image_idx=image_idx,
                 target=target,
                 in_appendix=in_appendix(p.section_id),
+                title_paragraph_idx=title_p.idx if title_p else None,
             )  # fmt: skip
         )
         return len(captions) - 1
@@ -85,11 +107,18 @@ def build_captions(doc: Document, in_appendix) -> Document:
         if m is None:
             continue
         kind = _kind(m.group("label"))
+        title_p = _title_paragraph(body, pos) if _is_bare_label(m) else None
         if kind == "table":
             target = _next_table(body, pos)
+            if target is None and title_p is not None:
+                target = _next_table(body, pos + 1)
+                if target is None:
+                    title_p = None
+            else:
+                title_p = None
             if target is None and not _is_caption_like(m):
                 continue
-            cap = add(block, m, "table", target.idx if target else None)
+            cap = add(block, m, "table", target.idx if target else None, title_p=title_p)
             if target is not None:
                 table_cap[target.idx] = cap
             used.add(block.idx)

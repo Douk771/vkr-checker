@@ -9,9 +9,11 @@ from typing import Literal
 
 from vkr_checker.model.document import Cell, Document, Paragraph, Table, Valued
 
+# «n»/«N» без «п/п» — это объём выборки в статистических таблицах, а не номер строки.
 NUMBER_HEADER = re.compile(
-    r"^\s*(?:№|N|No\.?|#)\s*(?:п\s*/\s*п)?\s*$|^\s*п\s*/\s*п\s*$", re.IGNORECASE
+    r"^\s*(?:№|No\.?|#)\s*(?:п\s*/\s*п)?\s*$|^\s*(?:N\s*)?п\s*/\s*п\s*$", re.IGNORECASE
 )
+_DASH_ONLY = re.compile(r"^[—–\-−]+$")
 _NUMERIC = re.compile(r"^[\d\s,.\-–−±<>=%*]+$")
 _ORIGIN_HINTS = {
     "defaults": "значение пришло из настроек документа по умолчанию",
@@ -64,8 +66,8 @@ def digit_share(text: str) -> float:
 def classify_cell(table: Table, cell: Cell, gray: tuple[float, float]) -> CellKind | None:
     """Шапка, номер, число, сомнительная (серая зона по доле цифр) или текст; пустая - None."""
     text = cell.text.strip()
-    if not text:
-        return None
+    if not text or _DASH_ONLY.match(text):
+        return None  # «—» в ячейке — нет значения, ни число, ни текст
     if cell.row == 1:
         return "header"
     if cell.col in number_columns(table):

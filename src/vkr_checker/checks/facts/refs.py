@@ -62,6 +62,7 @@ def _expand(first: str, rest: str, kind: RefKind) -> list[tuple[str, bool]]:
 
 def extract_refs(doc: Document) -> list[Ref]:
     captions = {c.paragraph_idx for c in doc.captions if c.paragraph_idx}
+    captions |= {c.title_paragraph_idx for c in doc.captions if c.title_paragraph_idx}
     result: list[Ref] = []
     for p in doc.paragraphs:
         if p.cell is not None or not p.text or p.idx in captions:
@@ -76,10 +77,16 @@ def extract_refs(doc: Document) -> list[Ref]:
                 for target, in_range in _expand(m.group("n"), m.group("rest") or "", kind):  # type: ignore[arg-type]
                     result.append(Ref(kind, target, Mention(p.idx, m.span()), see, in_range))  # type: ignore[arg-type]
         for m in _SOURCE.finditer(text):
+            if _DECIMALS.search(m.group("body")):
+                continue  # «[0,03; 0,50]» — доверительный интервал, а не ссылка
             numbers = _expand_source(m.group("body"))
             result.extend(Ref("source", n, Mention(p.idx, m.span())) for n in numbers)
     result.sort(key=lambda r: (r.loc.paragraph_idx or 0, r.loc.span, r.kind, r.target))
     return result
+
+
+# Номер источника не бывает 0 и не начинается с 0: «[0,03; 0,50]» — дробные числа.
+_DECIMALS = re.compile(r"(?<!\d)0\d*")
 
 
 def _expand_source(body: str) -> list[str]:

@@ -159,6 +159,8 @@ class Caption:
     image_idx: int | None = None  # для подписей в надписи
     target: int | None = None  # table_idx | image_idx
     in_appendix: bool = False
+    # двухстрочная подпись: «Таблица 1» (paragraph_idx) и название отдельным абзацем
+    title_paragraph_idx: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

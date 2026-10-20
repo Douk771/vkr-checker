@@ -6,7 +6,7 @@ import re
 from collections import defaultdict
 
 from vkr_checker.checks.base import CheckContext, Source, new_finding, result_of
-from vkr_checker.checks.facts.common import iter_text_units
+from vkr_checker.checks.facts.common import chapter_number, chapter_of, iter_text_units
 from vkr_checker.checks.facts.quantities import NUM
 from vkr_checker.checks.registry import register
 from vkr_checker.checks.rulehelpers import mention_location
@@ -225,6 +225,9 @@ def _rounding_near(ctx: CheckContext, paragraph_idx: int | None) -> bool:
     )
 
 
+_CITATION = re.compile(r"\[\d+(?:[,;\s–—-]+\d+)*(?:,\s*с\.[^\]]*)?\]")
+
+
 @register
 class Con03PercentSums:
     id = "CON-03"
@@ -234,6 +237,19 @@ class Con03PercentSums:
     default_level = "suspicion"
     needs = frozenset()
     priority = "should"
+
+    @staticmethod
+    def _literature_part(ctx: CheckContext, paragraph_idx: int | None) -> bool:
+        """Глава 1 — обзор литературы: проценты там из чужих исследований, а не из своих данных."""
+        if paragraph_idx is None:
+            return False
+        sid = ctx.doc.paragraph(paragraph_idx).section_id
+        chapter = chapter_of(ctx.doc, sid)
+        if chapter is None:
+            return False
+        if chapter.number:  # «ГЛАВА 2» — номер из заголовка надёжнее порядкового
+            return chapter.number.split(".")[0] == "1"
+        return chapter_number(ctx.doc, sid) == 1
 
     def _verdict(self, ctx: CheckContext, total: float):
         tol = ctx.th.PCT_TOL
@@ -247,9 +263,11 @@ class Con03PercentSums:
     def run(self, ctx: CheckContext):
         out = []
         for mention, text, _kind in iter_text_units(ctx.doc):
-            if mention.cell is not None:
+            if mention.cell is not None or self._literature_part(ctx, mention.paragraph_idx):
                 continue
             for s in split_sentences(text):
+                if _CITATION.search(s.text):
+                    continue  # чужие данные (опросы с несколькими ответами дают > 100 %)
                 values = [_num(m.group(1)) for m in _PCT.finditer(s.text)]
                 needed = 3 if not _PCT_SENTENCE_HINT.search(s.text) else 2
                 if len(values) < needed:

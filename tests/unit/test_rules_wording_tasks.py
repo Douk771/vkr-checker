@@ -112,3 +112,22 @@ def test_tsk01_count_difference():
     items = [*more, H("ЗАКЛЮЧЕНИЕ"), "Рассмотрены теоретические подходы к учебной мотивации."]
     fps = [f.fingerprint for f in run(Tsk01TasksVsConclusions(), items).findings]
     assert "TSK-01|count" in fps
+
+
+def test_lex01_limitations_sentence_is_not_causal_claim():
+    items = ch2("Ограничения исследования — корреляционный дизайн — определяют перспективы работы.")
+    assert not run(Lex01CausalWording(), items).findings
+
+
+def test_tsk01_prose_conclusion_extra_paragraphs_are_not_unlinked_conclusions():
+    items = [
+        *TASKS, H("ЗАКЛЮЧЕНИЕ"),
+        "В работе рассмотрены теоретические подходы к учебной мотивации студентов.",
+        "Подобраны методики диагностики социальной адаптации, проведено эмпирическое исследование.",
+        "Выявлена связь мотивации и адаптации студентов на выборке первокурсников вуза.",
+        "Практические рекомендации адресованы кураторам групп и психологической службе вуза.",
+        "Перспективы связаны с расширением выборки и лонгитюдным дизайном исследования.",
+        "Таким образом, цель работы достигнута, задачи решены, гипотеза подтверждена полностью.",
+    ]  # fmt: skip
+    fps = [f.fingerprint for f in run(Tsk01TasksVsConclusions(), items).findings]
+    assert not [fp for fp in fps if fp.startswith(("TSK-01|conclusion", "TSK-01|count"))]

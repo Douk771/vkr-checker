@@ -54,6 +54,30 @@ def test_num01_appendix_numbered_separately():
     assert not run(Num01CaptionNumbering(), items).findings
 
 
+def test_num01_appendix_continues_main_numbering():
+    items = [
+        H("ГЛАВА 1. Т"), "Таблица 1 - А", T, "Таблица 2 - Б", T,
+        H("ПРИЛОЖЕНИЕ 1"), "Таблица 3 - В", T,
+    ]  # fmt: skip
+    assert not run(Num01CaptionNumbering(), items).findings
+
+
+def test_two_line_caption_is_recognized():
+    """«Таблица 1» отдельной строкой, название — следующим абзацем (как в чек-листе)."""
+    items = [H("ГЛАВА 1. Т"), "Данные в табл. 1.", "Таблица 1", "Описательные статистики", T]
+    assert not run(Num01CaptionNumbering(), items).findings
+    assert not run(Num02References(), items).findings
+
+
+def test_num03_counts_appendix_tables_too():
+    items = [
+        H("ВВЕДЕНИЕ"), "Работа содержит 2 таблицы.",
+        H("ГЛАВА 1. Т"), "Таблица 1 - А", T,
+        H("ПРИЛОЖЕНИЕ 1"), "Таблица 2 - Б", T,
+    ]  # fmt: skip
+    assert not run(Num03TotalsPhrase(), items).findings
+
+
 def test_num01_table_without_caption_and_stale_seq():
     from vkr_checker.model.document import FieldRef
 
@@ -87,7 +111,8 @@ def test_num03_wrong_count_and_absent_phrase():
         H("ГЛАВА 1. Т"), "Таблица 1 - А", T, "Таблица 2 - Б", T,
     ]  # fmt: skip
     res = run(Num03TotalsPhrase(), items)
-    assert len(res.findings) == 1 and res.findings[0].values == {"declared": 5, "actual": 2}
+    assert len(res.findings) == 1
+    assert res.findings[0].values == {"declared": 5, "actual": 2, "total": 2}
     res = run(Num03TotalsPhrase(), [H("ВВЕДЕНИЕ"), "текст", H("ГЛАВА 1. Т"), "Таблица 1 - А", T])
     assert res.findings[0].level == "suspicion"
     ok = [H("ВВЕДЕНИЕ"), "В работе содержится 1 таблица.", H("ГЛАВА 1. Т"), "Таблица 1 - А", T]
@@ -105,6 +130,14 @@ def test_bib01_over_and_uncited():
     assert fps["BIB-01|uncited"].level == "suspicion" and fps["BIB-01|uncited"].values == {
         "uncited": [2]
     }
+
+
+def test_bib01_confidence_interval_is_not_a_citation():
+    items = [
+        H("ГЛАВА 1. Т"), "Связь значима (rs = 0,28; 95 % ДИ [0,03; 0,50]) [1].",
+        H("СПИСОК ЛИТЕРАТУРЫ"), "1. Иванов А.А. Книга.",
+    ]  # fmt: skip
+    assert not run(Bib01SourceReferences(), items).findings
 
 
 def test_bib01_author_year_style_does_not_flag_uncited():

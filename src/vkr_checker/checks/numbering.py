@@ -49,6 +49,19 @@ def _fmt_caption(caption: Caption) -> str:
 _KIND_ACC = {"table": "таблицу", "figure": "рисунок"}
 
 
+def _first_int(caps: list[Caption]) -> int | None:
+    for c in caps:
+        if c.number_parts and c.number_parts[-1].isdigit():
+            return int(c.number_parts[-1])
+    return None
+
+
+def _last_plain(caps: list[Caption]) -> int:
+    """Последний номер сквозной нумерации основной части (0, если её нет)."""
+    nums = [int(c.number) for c in caps if c.number.isdigit()]
+    return max(nums, default=0)
+
+
 def _caption_acc(caption: Caption) -> str:
     """«таблицу 2», «рисунок 1» — для «нет ссылки на …»."""
     noun = _KIND_ACC.get(caption.kind, KIND_NAME[caption.kind].lower())
@@ -73,14 +86,20 @@ class Num01CaptionNumbering(_NumRule):
         doc, out = ctx.doc, []
         for kind in ("table", "figure"):
             caps = [c for c in doc.captions if c.kind == kind]
-            out += self._sequence(ctx, [c for c in caps if not c.in_appendix], appendix=False)
-            out += self._sequence(ctx, [c for c in caps if c.in_appendix], appendix=True)
+            main = [c for c in caps if not c.in_appendix]
+            out += self._sequence(ctx, main, appendix=False)
+            # в приложениях нумерация либо своя (с 1), либо продолжает основную часть
+            out += self._sequence(
+                ctx, [c for c in caps if c.in_appendix], appendix=True, after=_last_plain(main)
+            )
         out += self._stale(ctx)
         out += self._without_caption(ctx)
         out += self._orphan_captions(ctx)
         return result_of(self, out)
 
-    def _sequence(self, ctx: CheckContext, caps: list[Caption], appendix: bool) -> list[Finding]:
+    def _sequence(
+        self, ctx: CheckContext, caps: list[Caption], appendix: bool, after: int = 0
+    ) -> list[Finding]:
         if len(caps) < 1:
             return []
         out: list[Finding] = []
@@ -103,12 +122,17 @@ class Num01CaptionNumbering(_NumRule):
             prefix = ".".join(c.number_parts[:-1]) if majority == "by_chapter" else ""
             groups.setdefault(prefix, []).append(c)
         for prefix, items in groups.items():
-            out += self._check_group(ctx, items, prefix, kind, where)
+            start = 1
+            if after and majority != "by_chapter" and _first_int(items) == after + 1:
+                start = after + 1
+            out += self._check_group(ctx, items, prefix, kind, where, start)
         if majority == "by_chapter" and not appendix:
             out += self._chapter_prefix(ctx, caps, kind)
         return out
 
-    def _check_group(self, ctx, items: list[Caption], prefix: str, kind: str, where: str):
+    def _check_group(
+        self, ctx, items: list[Caption], prefix: str, kind: str, where: str, start: int = 1
+    ):
         out: list[Finding] = []
         nums: list[int] = []
         for c in items:
@@ -116,7 +140,7 @@ class Num01CaptionNumbering(_NumRule):
                 nums.append(int(c.number_parts[-1]))
             except (ValueError, IndexError):
                 continue
-        expected = 1
+        expected = start
         seen: set[int] = set()
         for c, n in zip(items, nums, strict=False):
             fp = f"NUM-01|{kind}|{where}|{prefix}"
@@ -312,6 +336,22 @@ def _count_main(ctx: CheckContext) -> dict[str, int]:
     }
 
 
+def _count_with_appendices(ctx: CheckContext, main: dict[str, int]) -> dict[str, int]:
+    """Рисунки и таблицы вместе с приложениями: студенты часто считают их все."""
+    doc = ctx.doc
+    app_figures = sum(
+        1
+        for i in doc.images
+        if i.paragraph_idx is not None
+        and section_kind_of(doc, doc.paragraph(i.paragraph_idx).section_id) == "APPENDIX"
+    )
+    app_tables = sum(
+        1 for t in doc.tables
+        if t.caption_idx is not None and doc.captions[t.caption_idx].in_appendix
+    )  # fmt: skip
+    return {**main, "figure": main["figure"] + app_figures, "table": main["table"] + app_tables}
+
+
 @register
 class Num03TotalsPhrase(_NumRule):
     id = "NUM-03"
@@ -344,13 +384,16 @@ class Num03TotalsPhrase(_NumRule):
                 fingerprint="NUM-03|absent", level="suspicion", method="regex",
                 values=actual, hint="Приложения в этой фразе отдельно не учитываются.",
             ))  # fmt: skip
+        total = _count_with_appendices(ctx, actual)
         for key, (declared, par) in sorted(found.items()):
-            if declared != actual[key]:
-                out.append(new_finding(
-                    self, f"В тексте указано: {declared} {_ru_plural(declared, *_NOUN_RU[key])}, "
-                    f"а в работе — {actual[key]} (приложения в основной части не считаются).",
-                    fingerprint=f"NUM-03|{key}", method="regex",
-                    locations=[ctx.loc.paragraph(par)],
-                    values={"declared": declared, "actual": actual[key]},
-                ))  # fmt: skip
+            if declared in (actual[key], total[key]):
+                continue
+            out.append(new_finding(
+                self, f"В тексте указано: {declared} {_ru_plural(declared, *_NOUN_RU[key])}, "
+                f"а в работе — {actual[key]} в основной части"
+                + (f" и {total[key]} вместе с приложениями." if total[key] != actual[key] else "."),
+                fingerprint=f"NUM-03|{key}", method="regex",
+                locations=[ctx.loc.paragraph(par)],
+                values={"declared": declared, "actual": actual[key], "total": total[key]},
+            ))  # fmt: skip
         return result_of(self, out, counts=actual)

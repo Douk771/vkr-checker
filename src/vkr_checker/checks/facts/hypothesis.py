@@ -151,9 +151,36 @@ def status_of(text: str) -> str | None:
     return "confirmed"
 
 
+# «Гипотеза 2: …», «Гипотеза 1 (основная): …» — части с явным номером, по абзацу на часть
+_LABELED = re.compile(
+    r"^\s*(?:рабоч\w+\s+|частн\w+\s+)?гипотез\w*\s*№?\s*(?P<num>\d+)\s*(?:\([^)]*\))?\s*"
+    r"[:.\-–—]\s*(?P<body>\S.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _labeled_parts(doc: Document, elements: dict[str, list[IntroElement]]) -> list[HypothesisPart]:
+    parts: list[HypothesisPart] = []
+    for element in elements.get("hypothesis", []):
+        for idx in element.content_paragraphs:
+            p = doc.paragraph(idx)
+            m = _LABELED.match(p.text)
+            if m:
+                body = m.group("body").strip()
+                parts.append(
+                    HypothesisPart(
+                        int(m.group("num")), body, Mention(p.idx, (m.start("body"), len(p.text)))
+                    )
+                )
+    return parts
+
+
 def extract_hypothesis_parts(
     doc: Document, elements: dict[str, list[IntroElement]]
 ) -> list[HypothesisPart]:
+    labeled = _labeled_parts(doc, elements)
+    if labeled:
+        return labeled
     items: list[ListItem] = []
     for element in elements.get("hypothesis", []):
         if element.position == "inline":

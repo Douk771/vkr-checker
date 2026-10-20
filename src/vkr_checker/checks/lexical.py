@@ -78,7 +78,9 @@ class Lex01CausalWording:
         out = []
         for p in _results_scope(ctx):
             for s in split_sentences(p.text):
-                if _causal(s.text) and _links(s.text):
+                # «Ограничения исследования — … корреляционный дизайн …» — это как раз
+                # оговорка о причинности, а не причинный вывод
+                if _causal(s.text) and _links(s.text) and not _LIMITS_WORD.search(s.text):
                     out.append(
                         new_finding(
                             self,

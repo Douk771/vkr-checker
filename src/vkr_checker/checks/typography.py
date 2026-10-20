@@ -18,6 +18,18 @@ _UNITS = (
     "ч|час|часа|часов|мин|сек|лет|года|год|мес|мм|см|км|мг|г\\.|кг|мл|%|балл|балла|баллов|чел\\."
 )
 _UNIT = re.compile(rf"(?<![\w,.])\d+(?:[,.]\d+)? (?:{_UNITS})(?![\w])")
+# «2025 года», «1920 г.» — дата, а не величина с единицей измерения
+_YEAR = re.compile(r"^(?:1[89]|20)\d{2} (?:год|года|г\.)$")
+
+
+def _group_of(text: str) -> tuple[str, str]:
+    """Вид записи: статистика («n = 17») или число с единицей («60 %», «1,5 ч»)."""
+    if _STAT.match(text):
+        return "stat", "статистики («n = 17», «p < 0,05»)"
+    unit = text.split(" ", 1)[1]
+    if unit == "%":
+        return "percent", "процентов («60 %»)"
+    return f"unit|{unit}", f"величины с единицей «{unit}»"
 
 
 def _bad_matches(text: str) -> list[re.Match[str]]:
@@ -26,7 +38,7 @@ def _bad_matches(text: str) -> list[re.Match[str]]:
         # ошибка - обычный пробел вокруг знака (внутри совпадения есть пробел U+0020)
         if " " in m.group():
             found.append(m)
-    found.extend(_UNIT.finditer(text))
+    found.extend(m for m in _UNIT.finditer(text) if not _YEAR.match(m.group()))
     found.sort(key=lambda m: m.start())
     return found
 
@@ -50,19 +62,18 @@ class Tbl06NonBreakingSpace:
             for m in matches:
                 if mention.cell is not None:
                     cell = mention.cell
-                    label = ctx.doc.table(cell.table_idx).number_label(ctx.doc)
                     loc = ctx.loc.cell(cell.table_idx, cell.row, cell.col, m.span())
-                    where, key = label, f"t{cell.table_idx}"
                 else:
-                    idx = mention.paragraph_idx
-                    loc = ctx.loc.paragraph(idx, m.span())
-                    where, key = f"Абзац {idx}", f"p{idx}"
+                    loc = ctx.loc.paragraph(mention.paragraph_idx, m.span())
+                # одна находка на вид записи на всю работу: при сквозной привычке писать
+                # «60 %» через обычный пробел отчёт не тонет в находке на каждый абзац
+                group, title = _group_of(m.group())
                 shown = m.group().replace(" ", "␣")
                 out.append(
                     new_finding(
                         self,
-                        f"{where}: обычный пробел в записи «{shown}» (мест: {{count}}).",
-                        fingerprint=f"TBL-06|{key}",
+                        f"Обычный пробел в записи {title}, например «{shown}» (мест: {{count}}).",
+                        fingerprint=f"TBL-06|{group}",
                         locations=[loc],
                         method="regex",
                         values={"example": m.group()},

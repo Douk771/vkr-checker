@@ -10,7 +10,7 @@ from rapidfuzz import fuzz
 from vkr_checker.checks.base import CheckContext, Need, Source, new_finding, result_of
 from vkr_checker.checks.engine import need_section
 from vkr_checker.checks.facts.authors import authors_in
-from vkr_checker.checks.facts.common import paragraphs_in
+from vkr_checker.checks.facts.common import paragraphs_in, section_kind_of
 from vkr_checker.checks.registry import register
 from vkr_checker.checks.rulehelpers import in_section_tree, mention_location, section_id_of
 from vkr_checker.nlp.lexicons.methods import METHODS
@@ -49,7 +49,9 @@ class Met01MethodsConsistency:
                 declared_intro.setdefault(m.method_id, m)
             elif in_section_tree(ctx, sid, sub.id):
                 declared_sub.setdefault(m.method_id, m)
-            elif in_section_tree(ctx, sid, ch2.id):
+            elif in_section_tree(ctx, sid, ch2.id) or _in_appendix(ctx, sid):
+                # результаты, вынесенные в приложение (таблица надёжности шкал и т.п.), тоже
+                # считаются применением метода
                 applied.setdefault(m.method_id, m)
         out = []
         for mid in sorted(set(declared_intro) ^ set(declared_sub)):
@@ -306,3 +308,7 @@ class Met04DiscussionAuthors:
                 )  # fmt: skip
             )
         return result_of(self, out)
+
+
+def _in_appendix(ctx: CheckContext, section_id: str | None) -> bool:
+    return section_kind_of(ctx.doc, section_id) == "APPENDIX"
