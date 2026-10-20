@@ -10,7 +10,7 @@ from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
 
 from tests.functional.conftest import of_rule
-from tests.functional.thesis import NB, Thesis, p, table
+from tests.functional.thesis import Thesis, p, table
 
 BASE_TABLE = [
     ["Показатель", "Группа 1", "Группа 2"],
@@ -272,25 +272,6 @@ def test_tbl05_vertical_top_is_violation(api, clean):
                     c.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
 
     assert viol(api.report(_patched(clean, f)), "TBL-05")
-
-
-@pytest.mark.parametrize("raw", ["n = 17", "p < 0,001", "1,5 ч"])
-def test_tbl06_regular_space_without_line_break_is_not_a_finding(api, clean, raw):
-    """Решение заказчика 2026-10-20: обычный пробел — проблема, только если запись разорвана
-    переносом строки; переносы видны лишь в вёрстке, без LibreOffice правило не выполняется."""
-    t = clean.insert_after(
-        "Гипотеза о том, что учебная", p(f"Для группы получено значение {raw} по данным опроса.")
-    )
-    rep = api.report(t)
-    assert not susp(rep, "TBL-06") and not viol(rep, "TBL-06")
-
-
-def test_tbl06_nbsp_passes(api, clean):
-    t = clean.insert_after(
-        "Гипотеза о том, что учебная", p(f"Для группы получено значение n{NB}={NB}17 по данным.")
-    )
-    rep = api.report(t)
-    assert not susp(rep, "TBL-06") and not viol(rep, "TBL-06")
 
 
 def test_tbl07_exact_row_height_is_suspicion(api, clean):

@@ -222,15 +222,6 @@ class FieldRef:
 
 
 @dataclass(frozen=True, slots=True)
-class BrokenNotation:
-    """Запись величины, разорванная переносом строки в вёрстке («60⏎%», «n =⏎37»)."""
-
-    page: int
-    before: str  # конец строки
-    after: str  # начало следующей строки
-
-
-@dataclass(frozen=True, slots=True)
 class Layout:
     """Привязка к страницам по вёрстке LibreOffice; None в Document = откат."""
 
@@ -244,7 +235,6 @@ class Layout:
     coverage: float = 1.0
     engine: str | None = None
     font_substitutions: tuple[str, ...] = ()
-    broken_notations: tuple[BrokenNotation, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

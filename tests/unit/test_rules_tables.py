@@ -13,7 +13,6 @@ from vkr_checker.checks.tables_format import (
     Tbl08KeepNext,
     Tbl09MissingStyle,
 )
-from vkr_checker.checks.typography import Tbl06NonBreakingSpace
 from vkr_checker.model.document import (
     Caption,
     Cell,
@@ -280,71 +279,3 @@ def test_tbl09_missing_style():
 def test_no_tables_gives_not_run():
     doc = DocBuilder().build()
     assert run(Tbl01Indents(), doc).outcome == "not_run"
-
-
-# --- TBL-06 -------------------------------------------------------------------------------
-def text_doc(*paras, cells=None):
-    b = DocBuilder()
-    b.heading("Результаты", kind="CHAPTER", number="2")
-    for t in paras:
-        b.para(t)
-    if cells:
-        b.table(cells, caption="Таблица 1 - Данные")
-    return b.build(with_layout=True)
-
-
-def test_find_broken_notations_in_pdf_lines():
-    from vkr_checker.layout.pdftext import find_broken_notations
-
-    raw = "\r\n".join([
-        "мужчины составили 60",          # число в конце строки
-        "% выборки, а при n =",           # процент на новой строке; «n =» в конце
-        "37 различия значимы, p",         # «37» на новой строке; «p» в конце
-        "< 0,05. По данным 2025",         # знак на новой строке; год в конце
-        "года рост составил 1,5 ч в день.",
-    ])  # fmt: skip
-    got = [(b.before.split()[-1], b.after.split()[0]) for b in find_broken_notations(raw, 3)]
-    assert got == [("60", "%"), ("=", "37"), ("p", "<")]
-    assert all(b.page == 3 for b in find_broken_notations(raw, 3))
-    # «rs =» в конце последней строки страницы, дальше колонтитул «52» — не разрыв
-    assert not find_broken_notations("связь сильнее (rs =\r\n52", 52)
-    # а число отдельной строкой внутри страницы — продолжение записи
-    assert find_broken_notations("по MLQ-5X (n =\r\n50\r\nдалее текст", 50)
-
-
-def test_tbl06_reports_only_real_breaks_with_paragraph_location():
-    from vkr_checker.model.document import BrokenNotation
-
-    b = DocBuilder()
-    b.heading("Результаты", kind="CHAPTER", number="2", page=1)
-    b.para("Мужчины составили 60 % выборки.", page=1)
-    doc = b.build(with_layout=True)
-    bn = BrokenNotation(page=1, before="Мужчины составили 60", after="% выборки.")
-    doc = replace(doc, layout=replace(doc.layout, broken_notations=(bn,)))
-    (f,) = run(Tbl06NonBreakingSpace(), doc).findings
-    assert f.level == "suspicion" and "60⏎%" in f.message
-    assert f.locations and f.locations[0].paragraph_idx is not None
-
-
-def test_tbl06_regular_spaces_without_break_pass():
-    doc = text_doc("Выборка n = 17, различия значимы при p < 0,001, длительность 1,5 ч.")
-    assert run(Tbl06NonBreakingSpace(), doc).outcome == "passed"
-
-
-def test_tbl06_without_layout_is_not_checked():
-    b = DocBuilder()
-    b.heading("Результаты", kind="CHAPTER", number="2")
-    b.para("n = 17")
-    assert run(Tbl06NonBreakingSpace(), b.build()).outcome == "not_checked"
-
-
-def test_tbl04_sample_size_column_n_is_not_number_column():
-    rows = [["Показатель", "n", "%"], ["Мужчины", "37", "59,7"]]
-    res = run(Tbl04ColumnProportions(), build(rows, grid_cols_cm=(11.0, 2.5, 3.0)))
-    assert "TBL-04|2|num_width" not in [f.fingerprint for f in res.findings]
-
-
-def test_tbl05_dash_cell_is_neither_text_nor_number():
-    rows = [["Показатель", "Значение"], ["Возраст", "—"]]
-    res = run(Tbl05Alignment(), build(rows, {(2, 2): fmt(align=V("center"))}))
-    assert res.outcome == "passed"

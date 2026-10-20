@@ -29,7 +29,6 @@ RULE_MODULES = (
     "vkr_checker.checks.not_checked",
     "vkr_checker.checks.structure",
     "vkr_checker.checks.tables_format",
-    "vkr_checker.checks.typography",
     "vkr_checker.checks.tables_place",
     "vkr_checker.checks.volume",
     "vkr_checker.checks.numbering",

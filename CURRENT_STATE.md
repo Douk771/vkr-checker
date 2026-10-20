@@ -75,7 +75,6 @@ scripts/                  build_fixtures.py, profile_pipeline.py, measure_layout
 |---|---|---|
 | structure | STR-01..06, PAGE-01 | `checks/structure.py` |
 | tables | TBL-01..05, 07..09 | `checks/tables_format.py` |
-| tables | TBL-06 | `checks/typography.py` |
 | tables | TBL-10..12 | `checks/tables_place.py` |
 | volume | VOL-01 | `checks/volume.py` |
 | numbering | NUM-01..03 | `checks/numbering.py` |
