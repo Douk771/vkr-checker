@@ -11,11 +11,17 @@ DST="/etc/nginx/sites-available/$DOMAIN.conf"
 
 # Конфиг ставится, только если его ещё нет: после certbot в нём HTTPS-блок,
 # и перезапись сломала бы сертификат.
+LINK="/etc/nginx/sites-enabled/$DOMAIN.conf"
 if [ ! -e "$DST" ]; then
   install -m 644 "$SRC" "$DST"
-  ln -sf "$DST" "/etc/nginx/sites-enabled/$DOMAIN.conf"
+  ln -sf "$DST" "$LINK"
 fi
-nginx -t
+# если конфиг не проходит проверку — отключаем только этот сайт, чтобы не сломать соседние
+if ! nginx -t; then
+  rm -f "$LINK"
+  echo "конфиг $DOMAIN не прошёл nginx -t, сайт отключён, остальные сайты не тронуты"
+  exit 1
+fi
 systemctl reload nginx
 
 if [ ! -d "/etc/letsencrypt/live/$DOMAIN" ]; then
