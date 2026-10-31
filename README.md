@@ -57,6 +57,16 @@ docker compose -p vkr-checker up --build
 
 Контейнер работает под non-root с read-only корнем, LibreOffice внутри образа; healthcheck - `/api/health`.
 
+### Сервер psy-ign.ru
+
+Публичный сайт без пароля: контейнер в режиме `local` слушает только `127.0.0.1:8000`, наружу его отдаёт nginx с HTTPS (Let's Encrypt). Конфиг nginx — `deploy/nginx/psy-ign.ru.conf` (лимит тела 45 МБ, таймаут 180 с, не больше 6 проверок в минуту с одного IP). Выкладка и обновление до `develop` на сервере под root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Douk771/vkr-checker/develop/deploy/deploy.sh | bash
+```
+
+Скрипт ставит Docker, если его нет, клонирует или обновляет репозиторий в `/opt/vkr-checker`, поднимает контейнер, при первом запуске включает сайт в nginx и получает сертификат. Перед первым запуском A-записи `psy-ign.ru` и `www.psy-ign.ru` должны указывать на сервер.
+
 ## Переменные окружения
 
 Полный список с примерами - `.env.example`. Основные:
