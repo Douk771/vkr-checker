@@ -50,7 +50,7 @@ jobs:
           echo "83.246.179.104 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIY0BsGdZbr+w/9qnQ0VfKD6zv3Y7JFEfh67df6phSDS" > ~/.ssh/known_hosts
           ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
             server@83.246.179.104 deploy | tee deploy.log
-          grep -q "контейнер работает" deploy.log
+          grep -qE "контейнер работает|пересборка не нужна" deploy.log
 
       - name: Сайт отвечает
         run: |
