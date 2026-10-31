@@ -1,0 +1,19 @@
+# Прод на psy-ign.ru (общий сервер с EZBOOK): поверх docker-compose.yml.
+#   docker compose -p vkr-checker -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+# Порт 8000 на сервере занят (GlitchTip) — сервис на 127.0.0.1:8010, наружу через nginx.
+# Ограничения ресурсов: LibreOffice не должен отнимать память и CPU у соседних сервисов.
+services:
+  vkr-checker:
+    image: vkr-checker:prod
+    ports: !override
+      - "127.0.0.1:8010:8000"
+    environment:
+      VKR_MODE: local
+      VKR_MAX_CONCURRENT_JOBS: "2"
+    mem_limit: 1200m
+    cpus: 1.5
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
