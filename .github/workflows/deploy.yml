@@ -1,0 +1,61 @@
+# Деплой на https://psy-ign.ru по кнопке: Actions → Deploy → Run workflow.
+# Раннер заходит на сервер отдельным ключом (секрет DEPLOY_SSH_KEY). На сервере ключ привязан
+# к одной команде — deploy.sh (обновление до develop и перезапуск контейнера): ни shell, ни
+# проброса портов. Перед выкладкой проверяется, что CI на этом коммите develop зелёный.
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-psy-ign
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://psy-ign.ru
+    timeout-minutes: 20
+    steps:
+      - name: Только ветка develop
+        if: github.ref != 'refs/heads/develop'
+        run: |
+          echo "Деплой запускается только из develop (выбрано: ${GITHUB_REF})."
+          exit 1
+
+      - name: CI на этом коммите зелёный
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # хотя бы один успешный прогон CI на этом коммите (push в ветку или в develop)
+          ok=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${GITHUB_SHA}" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success")] | length')
+          echo "Успешных прогонов CI для ${GITHUB_SHA::7}: ${ok}"
+          [ "$ok" -gt 0 ] || { echo "Сначала дождитесь зелёного CI на этом коммите."; exit 1; }
+
+      - name: Выкладка на сервер
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          [ -n "$SSH_KEY" ] || { echo "Нет секрета DEPLOY_SSH_KEY"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          # ключ хоста закреплён: подключаемся только к своему серверу
+          echo "83.246.179.104 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIY0BsGdZbr+w/9qnQ0VfKD6zv3Y7JFEfh67df6phSDS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 \
+            server@83.246.179.104 deploy | tee deploy.log
+          grep -q "контейнер работает" deploy.log
+
+      - name: Сайт отвечает
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS https://psy-ign.ru/api/health; then echo; exit 0; fi
+            sleep 3
+          done
+          echo "https://psy-ign.ru/api/health не отвечает"; exit 1

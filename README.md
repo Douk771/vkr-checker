@@ -67,6 +67,12 @@ docker compose -p vkr-checker up --build
 bash ~/vkr-checker/deploy/deploy.sh
 ```
 
+**По кнопке:** GitHub → Actions → **Deploy** → Run workflow (ветка `develop`). Workflow проверяет, что CI на коммите зелёный, заходит на сервер отдельным ключом из секрета `DEPLOY_SSH_KEY` и запускает `deploy.sh`, затем ждёт ответа `https://psy-ign.ru/api/health`. На сервере ключ ограничен в `~/.ssh/authorized_keys` одной командой:
+
+```
+restrict,command="bash /home/server/vkr-checker/deploy/deploy.sh" ssh-ed25519 AAAA… github-actions deploy vkr-checker
+```
+
 Один раз — сайт в nginx и сертификат (нужен sudo; A-записи `psy-ign.ru` и `www` уже должны указывать на сервер):
 
 ```bash
