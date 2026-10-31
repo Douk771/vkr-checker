@@ -23,6 +23,7 @@
 | `POST /api/check` | да* | проверка одного .docx, возвращает `CheckReport` |
 | `POST /api/compare` | да* | сравнение двух версий, возвращает `CompareReport` |
 | `POST /api/export/matrix.xlsx` | да* | .xlsx матрицы из присланного JSON |
+| `POST /api/export/report.docx` | да* | .docx отчёта о проверке или о сравнении из присланного JSON |
 
 \* «да» означает только server-режим. В local-режиме авторизации нет.
 
@@ -54,6 +55,12 @@ Health используется и как HEALTHCHECK в Docker, поэтому 
 - 200: бинарный .xlsx, `Content-Disposition: attachment; filename*=UTF-8''<file_name без .docx>_матрица.xlsx`. Формат листов описан в ARCHITECTURE_CHECKS.md §7.
 - Невалидный JSON или несоответствие схеме дают 422 `validation_error`, в `field` путь до поля. Лимит тела 5 МБ.
 
+### 2.5а. `POST /api/export/report.docx`
+- Тело `ReportExportRequest`: ровно одно из полей `check` (`CheckReport` из ответа `/api/check`) или `compare` (`CompareReport` из ответа `/api/compare`). Оба или ни одного — 422 `validation_error`.
+- 200: бинарный .docx, `Content-Disposition: attachment; filename*=UTF-8''<имя без .docx>_отчёт.docx` (для сравнения — `_сравнение.docx`, по имени новой версии).
+- Содержание: сводка, находки по блокам с местами (до 5 на находку) и подсказками, список «не проверяется кодом». Для сравнения сначала изменения по разделам (зачёркнуто / подчёркнуто), изменения чисел, влияние на выводы и динамика замечаний, затем проверка новой версии. Матрица в .docx не входит — она выгружается в .xlsx.
+- Лимит тела `4 × VKR_MAX_JSON_MB` (по умолчанию 20 МБ): отчёт сравнения содержит обе версии и дифф. Сервер ничего не хранит.
+
 ### 2.6. Скачивание отчёта (UI-02, US-20) — без эндпоинта
 HTML-отчёт собирает фронтенд: берёт `/report_viewer.html`, вшивает JSON ответа в `<script type="application/json" id="report-data">` и скачивает Blob `<имя>_отчёт.html`. Тот же viewer рендерит отчёт и на странице. Обратно на сервер отчёт не отправляется. Защита от XSS: при вшивании каждый символ `<` в JSON заменяется на юникод-эскейп (кодовая точка U+003C), а viewer вставляет тексты только через `textContent`, никогда через `innerHTML`.
 
@@ -78,6 +85,7 @@ HTML-отчёт собирает фронтенд: берёт `/report_viewer.ht
 | размер одного .docx | 20 МБ | `VKR_MAX_UPLOAD_MB` | 413 `file_too_large` |
 | тело запроса `/api/check` / `/api/compare` | 1×/2× лимита файла + 1 МБ | производное | 413 `file_too_large` |
 | тело `/api/export/matrix.xlsx` | 5 МБ | `VKR_MAX_JSON_MB` | 413 `file_too_large` |
+| тело `/api/export/report.docx` | 20 МБ | `4 × VKR_MAX_JSON_MB` | 413 `file_too_large` |
 | распакованный размер / число записей zip | 200 МБ / 2000 | `VKR_MAX_UNZIPPED_MB` / `VKR_MAX_ZIP_ENTRIES` | 422 `docx_limits_exceeded` |
 | одновременные проверки (check = 1, compare = 2 слота) | 2 слота | `VKR_MAX_CONCURRENT_JOBS` | ожидание слота ≤ 30 с, иначе 503 `server_busy` + `Retry-After` |
 | таймаут check / compare | 90 / 150 с | `VKR_CHECK_TIMEOUT_S` / `VKR_COMPARE_TIMEOUT_S` | 503 `processing_timeout` |

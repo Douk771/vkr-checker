@@ -133,6 +133,27 @@ paths:
         "422": { $ref: "#/components/responses/ValidationError" }
         "500": { $ref: "#/components/responses/InternalError" }
 
+  /api/export/report.docx:
+    post:
+      tags: [export]
+      operationId: exportReportDocx
+      summary: Построить .docx отчёта о проверке или о сравнении из присланного JSON (сервер ничего не хранит)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportExportRequest" }
+      responses:
+        "200":
+          description: Файл .docx (Content-Disposition attachment)
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
 components:
   securitySchemes:
     session: { type: apiKey, in: cookie, name: vkr_session }
@@ -512,3 +533,9 @@ components:
         service_version: { type: string }
         checked_at: { type: string, format: date-time }
         matrix: { $ref: "#/components/schemas/Matrix" }
+    ReportExportRequest:
+      type: object
+      description: "Ровно одно из полей: check (отчёт о проверке) или compare (отчёт о сравнении)."
+      properties:
+        check: { $ref: "#/components/schemas/CheckReport" }
+        compare: { $ref: "#/components/schemas/CompareReport" }

@@ -37,6 +37,14 @@ export function createApi({ fetchImpl = (...a) => fetch(...a), base = "" } = {})
     check: (file, { signal } = {}) => json("/api/check", multipart({ file }, signal)),
     compare: (oldFile, newFile, { signal } = {}) =>
       json("/api/compare", multipart({ old: oldFile, new: newFile }, signal)),
+    exportReportDocx: async (payload) => {
+      const response = await request("/api/export/report.docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      return response.blob();
+    },
     exportMatrix: async (payload) => {
       const response = await request("/api/export/matrix.xlsx", {
         method: "POST",

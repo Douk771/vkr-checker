@@ -2,7 +2,7 @@
 import { userMessage } from "./errors.js";
 import { validateDocx } from "./limits.js";
 import { MODES, validateSelection, firstFile, progressText, withAuthRetry, isAbort, reportFromResponse } from "./upload_logic.js";
-import { buildStandaloneHtml, reportFileName } from "./download.js";
+import { buildStandaloneHtml, reportFileName, reportDocxFileName } from "./download.js";
 import { buildExportPayload } from "./artifacts.js";
 import { renderReport } from "/viewer.js";
 import { renderCompare } from "/compare_view.js";
@@ -16,7 +16,8 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
   let mode = MODES.check;
   let controller = null;
   let timer = null;
-  let lastReport = null;
+  // у каждого режима свой последний результат: при переключении показываем только его
+  const results = { [MODES.check]: null, [MODES.compare]: null };
 
   const slotEl = (slot) => form.querySelector(`[data-slot="${slot}"]`);
   const errEl = (slot) => form.querySelector(`[data-error="${slot}"]`);
@@ -34,6 +35,16 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
     $("run-btn").textContent = LABELS[next];
     showErrors({ file: "", old: "", new: "" });
     $("run-error").hidden = true;
+    const saved = results[next];
+    if (saved) showReport(saved.report, saved.compare, { scroll: false });
+    else hideResult();
+  }
+
+  function hideResult() {
+    $("result").hidden = true;
+    $("download-status").textContent = "";
+    $("cmp-root").replaceChildren();
+    $("rv-root").replaceChildren();
   }
 
   function setFile(slot, file) {
@@ -81,13 +92,19 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
 
     controller = new AbortController();
     const { signal } = controller;
-    const action = () => (mode === MODES.compare
+    const runMode = mode;
+    const action = () => (runMode === MODES.compare
       ? state.api.compare(files.old, files.new, { signal })
       : state.api.check(files.file, { signal }));
     setBusy(true);
     try {
       const data = await withAuthRetry(action, () => requestLogin(signal));
-      showReport(reportFromResponse(mode, data), mode === MODES.compare ? data : null);
+      const result = {
+        report: reportFromResponse(runMode, data),
+        compare: runMode === MODES.compare ? data : null,
+      };
+      results[runMode] = result;
+      if (mode === runMode) showReport(result.report, result.compare);
     } catch (e) {
       if (isAbort(e)) {
         $("run-error").textContent = "Отменено";
@@ -101,8 +118,7 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
     }
   }
 
-  function showReport(report, compare) {
-    lastReport = report;
+  function showReport(report, compare, { scroll = true } = {}) {
     $("result").hidden = false;
     $("download-status").textContent = "";
     const cmp = $("cmp-root");
@@ -124,11 +140,13 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
     };
     if (compare) renderCompare(compare, cmp, $("rv-root"), opts);
     else renderReport(report, $("rv-root"), opts);
-    $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+    if (scroll) $("result").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function download() {
-    if (!lastReport) return;
+    const current = results[mode];
+    if (!current) return;
+    const lastReport = current.report;
     const status = $("download-status");
     $("download-btn").disabled = true;
     status.textContent = "Формируется…";
@@ -149,6 +167,24 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
     }
   }
 
+  async function downloadDocx() {
+    const current = results[mode];
+    if (!current) return;
+    const status = $("download-status");
+    $("download-docx-btn").disabled = true;
+    status.textContent = "Формируется…";
+    const payload = current.compare ? { compare: current.compare } : { check: current.report };
+    try {
+      const blob = await withAuthRetry(() => state.api.exportReportDocx(payload), () => requestLogin());
+      saveBlob(blob, reportDocxFileName(current.report.file.name, Boolean(current.compare)));
+      status.textContent = "";
+    } catch (e) {
+      status.textContent = userMessage(e);
+    } finally {
+      $("download-docx-btn").disabled = false;
+    }
+  }
+
   function saveBlob(blob, name) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -163,4 +199,5 @@ export function initUpload(state, { requestLogin, cancelLoginWait }) {
   form.addEventListener("submit", run);
   $("cancel-btn").addEventListener("click", () => { if (controller) controller.abort(); cancelLoginWait(); });
   $("download-btn").addEventListener("click", download);
+  $("download-docx-btn").addEventListener("click", downloadDocx);
 }

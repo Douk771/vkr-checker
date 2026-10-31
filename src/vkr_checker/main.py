@@ -32,6 +32,11 @@ def _body_limits(s: Settings) -> dict[tuple[str, str], tuple[int, str]]:
             s.max_json_bytes,
             f"Тело запроса больше {s.max_json_mb} МБ.",
         ),
+        # отчёт сравнения содержит обе версии и дифф: лимит больше, чем у матрицы
+        ("POST", "/api/export/report.docx"): (
+            4 * s.max_json_bytes,
+            f"Тело запроса больше {4 * s.max_json_mb} МБ.",
+        ),
         ("POST", "/api/session"): (SESSION_BODY_LIMIT, "Слишком большое тело запроса."),
     }
 

@@ -18,12 +18,14 @@ from pydantic import ValidationError
 from vkr_checker import __version__
 from vkr_checker.docx.package import DocxError
 from vkr_checker.matrix.xlsx import build_matrix_xlsx, export_filename
+from vkr_checker.report.docx_export import build_report_docx, report_filename
 from vkr_checker.report.schema import (
     CheckReport,
     CompareReport,
     ErrorResponse,
     Health,
     MatrixExportRequest,
+    ReportExportRequest,
 )
 
 from .auth import require_auth
@@ -231,5 +233,49 @@ async def export_matrix_xlsx(request: Request) -> Response:
     return Response(
         content=data,
         media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
+    )
+
+
+DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+@router.post(
+    "/export/report.docx",
+    operation_id="exportReportDocx",
+    tags=["export"],
+    responses={
+        200: {"content": {DOCX_MEDIA_TYPE: {"schema": {"type": "string", "format": "binary"}}}},
+        401: _ERR,
+        413: _ERR,
+        422: _ERR,
+        500: _ERR,
+    },
+    response_class=Response,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {"schema": {"$ref": "#/components/schemas/ReportExportRequest"}}
+            },
+        }
+    },
+    dependencies=[Depends(require_auth)],
+)
+async def export_report_docx(request: Request) -> Response:
+    try:
+        payload = ReportExportRequest.model_validate(await request.json())
+    except (ValueError, ValidationError):
+        raise ApiError("validation_error", field="report") from None
+    try:
+        data = await to_thread.run_sync(build_report_docx, payload.check, payload.compare)
+    except Exception as exc:
+        log.error("сбой выгрузки отчёта в docx type=%s", type(exc).__name__)
+        raise ApiError("internal_error") from exc
+    name_src = payload.compare.new.file.name if payload.compare else payload.check.file.name  # type: ignore[union-attr]
+    name = report_filename(name_src, compare=payload.compare is not None)
+    return Response(
+        content=data,
+        media_type=DOCX_MEDIA_TYPE,
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
     )

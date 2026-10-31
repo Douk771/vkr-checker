@@ -46,6 +46,15 @@ ${code}
 `;
 }
 
+function safeBase(docxName) {
+  return String(docxName || "").replace(/\.docx$/i, "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").trim() || "report";
+}
+
+/** "Курсовая.docx" -> "Курсовая_отчёт.docx" (сравнение -> "_сравнение.docx"). */
+export function reportDocxFileName(docxName, compare) {
+  return `${safeBase(docxName)}_${compare ? "сравнение" : "отчёт"}.docx`;
+}
+
 /** "Курсовая.docx" -> "Курсовая_отчёт.html"; символы, опасные для имени файла, заменяются. */
 export function reportFileName(docxName) {
   const base = String(docxName || "").replace(/\.docx$/i, "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").trim();

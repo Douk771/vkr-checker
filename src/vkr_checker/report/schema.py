@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from vkr_checker.model.finding import (
     RULE_ID_PATTERN,
@@ -243,6 +243,19 @@ class MatrixExportRequest(ApiModel):
     service_version: str | None = None
     checked_at: datetime | None = None
     matrix: Matrix
+
+
+class ReportExportRequest(ApiModel):
+    """Тело POST /api/export/report.docx: ровно один из отчётов."""
+
+    check: CheckReport | None = None
+    compare: CompareReport | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> ReportExportRequest:
+        if (self.check is None) == (self.compare is None):
+            raise ValueError("нужен ровно один из check или compare")
+        return self
 
 
 class Limits(ApiModel):

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { validateSelection, formatElapsed, withAuthRetry, reportFromResponse, progressText } from "../js/upload_logic.js";
-import { escapeJsonForScript, buildStandaloneHtml, reportFileName, stripModuleSyntax } from "../js/download.js";
+import { escapeJsonForScript, buildStandaloneHtml, reportFileName, reportDocxFileName, stripModuleSyntax } from "../js/download.js";
 import { toTable, ruleTables, buildExportPayload, cellText } from "../js/artifacts.js";
 
 const golden = (n) => JSON.parse(readFileSync(new URL(`../../tests/golden/${n}.json`, import.meta.url)));
@@ -110,4 +110,10 @@ test("buildExportPayload по контракту", () => {
   assert.equal(p.file_name, rep.file.name);
   assert.equal(p.matrix, rep.matrix);
   assert.equal(p.checked_at, rep.checked_at);
+});
+
+test("reportDocxFileName", () => {
+  assert.equal(reportDocxFileName("Иванов.docx", false), "Иванов_отчёт.docx");
+  assert.equal(reportDocxFileName("a/b.docx", true), "a_b_сравнение.docx");
+  assert.equal(reportDocxFileName("", false), "report_отчёт.docx");
 });
